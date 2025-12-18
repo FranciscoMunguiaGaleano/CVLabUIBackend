@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+# Virtual environment
+cvlabenv/
+venv/
+env/
+# Byte-compiled / distribution folders
+build/
+dist/
+*.egg-info/
+# IDE/editor
+.vscode/
+.idea/
+# OS
+.DS_Store
+Thumbs.db
+# Secrets or credentials
+.env
+*.pem
+*.key
+# images
+*.jpg
+# json
+*.json
+
