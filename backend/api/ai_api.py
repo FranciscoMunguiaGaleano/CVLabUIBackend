@@ -25,6 +25,7 @@ def ai_scientist():
         max_length=30,
         num_return_sequences=1
     )
+    #print(output)
 
     return jsonify({
         "ok": True,
