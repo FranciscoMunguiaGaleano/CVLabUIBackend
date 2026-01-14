@@ -1,4 +1,4 @@
-from cvlab.devices import Arm, SolidDispenser 
+from cvlab.devices import Arm, SolidDispenser, Mixer 
 from cvlab.utils.config import load_config
 import os
 
