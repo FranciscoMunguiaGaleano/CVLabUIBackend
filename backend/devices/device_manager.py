@@ -21,7 +21,7 @@ class DeviceManager:
             solid_dispenser_aux_url=config.PLC_URL,
             solid_dispenser_aux_port=config.PLC_PORT
         )
-        mixer = Mixer(
+        self.mixer = Mixer(
         name="Mixer",
             mixer_url=config.PLC_URL,
             mixer_port=config.PLC_PORT,
