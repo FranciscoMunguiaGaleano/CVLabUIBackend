@@ -3,6 +3,7 @@ from flask_cors import CORS
 from api.arm_api import robot_bp
 from api.ai_api import ai_bp
 from api.solids_dispenser_api import quantos_bp
+from api.mixer_api import mixer_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -10,6 +11,7 @@ CORS(app)
 app.register_blueprint(robot_bp, url_prefix="/api/v1/robot")
 app.register_blueprint(ai_bp, url_prefix="/api/v1/aiscientist")
 app.register_blueprint(quantos_bp, url_prefix="/api/v1/quantos")
+app.register_blueprint(mixer_bp, url_prefix="/api/v1/mixer")
 
 @app.route("/health")
 def health():

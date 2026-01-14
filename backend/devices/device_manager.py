@@ -21,6 +21,13 @@ class DeviceManager:
             solid_dispenser_aux_url=config.PLC_URL,
             solid_dispenser_aux_port=config.PLC_PORT
         )
+        mixer = Mixer(
+        name="Mixer",
+            mixer_url=config.PLC_URL,
+            mixer_port=config.PLC_PORT,
+            mixer_aux_url=config.PUMPS_URL,
+            mixer_aux_port=config.PUMPS_PORT
+    )
 
 # Singleton instance
 devices = DeviceManager()
