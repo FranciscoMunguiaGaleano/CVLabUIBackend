@@ -13,19 +13,19 @@ mixer = devices.mixer
 # Lift control
 # ------------------------------------------------------------------
 @mixer_bp.route("/raise_lift", methods=["GET"])
-def raise_lift(self):
+def raise_lift():
     return jsonify(mixer.raise_lift())
 
 @mixer_bp.route("/lower_lift", methods=["GET"])
-def lower_lift(self):
+def lower_lift():
     return jsonify(mixer.lower_lift())
 # ------------------------------------------------------------------
 # Ultrasound bath control
 # ------------------------------------------------------------------
 @mixer_bp.route("/turn_ultrasound_bath_on", methods=["GET"])
-def turn_ultrasound_bath_on(self):
+def turn_ultrasound_bath_on():
     return jsonify(mixer.turn_ultrasound_bath_on())
 @mixer_bp.route("/turn_ultrasound_bath_off", methods=["GET"])
-def turn_ultrasound_bath_off(self):
+def turn_ultrasound_bath_off():
     return jsonify(mixer.turn_ultrasound_bath_off())
     
