@@ -1,9 +1,10 @@
-from cvlab.devices import Arm, SolidDispenser, Mixer, Capper 
+from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter 
 from cvlab.utils.config import load_config
 import os
 
 CWD_PATH = os.getcwd()
 CONF_PATH = os.getcwd()+"/data/conf/conf_dummy.json"
+PHMETER_CALIBRATION_CONF = os.getcwd()+"/data/calibration/ph_calibration.json"
 
 class DeviceManager:
     def __init__(self):
@@ -32,7 +33,13 @@ class DeviceManager:
             mixer_port=config.PLC_PORT,
             mixer_aux_url=config.PUMPS_URL,
             mixer_aux_port=config.PUMPS_PORT
-    )
+        )
+        self.ph_meter = PHMeter(
+            name="pH Meter",
+            phmeter_url=config.PH_PROBE_URL,
+            phmeter_port=config.PH_PROBE_PORT,
+            calibration_conf=PHMETER_CALIBRATION_CONF
+        )
 
 # Singleton instance
 devices = DeviceManager()

@@ -11,20 +11,25 @@ capper = devices.capper
 @capper_bp.route("/home", methods=["GET"])
 def home():
     """Move capper to home position."""
-    return jsonify(capper.home())
+    capper.home()
+    return jsonify({"message":'[INFO] Moving capper to home position.'})
 @capper_bp.route("/hold_vial", methods=["GET"])
 def hold_vial():
     """Hold vial in position."""
-    return jsonify(capper.hold_vial())
+    capper.hold_vial()
+    return jsonify({"message":'[INFO] Holding vial...'})
 @capper_bp.route("/release_vial", methods=["GET"])
 def release_vial():
     """Release vial from capper."""
-    return jsonify(capper.release_vial())
+    capper.release_vial()
+    return jsonify({"message":'[INFO] Releasing vial...'})
 @capper_bp.route("/uncap", methods=["GET"])
 def uncap():
     """Remove the cap from the vial."""
-    return jsonify(capper.uncap())
+    capper.uncap()
+    return jsonify({"message":'[INFO] Uncapping...'})
 @capper_bp.route("/cap", methods=["GET"])
 def cap():
     """Place the cap onto the vial."""
-    return jsonify(capper.cap())
+    capper.cap()
+    return jsonify({"message":'[INFO] Capping...'})
