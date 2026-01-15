@@ -11,10 +11,13 @@ phmeter = devices.ph_meter
 @phmeter_bp.route("/read_status", methods=["GET"])
 def read_status():
     """Read status of the pH meter."""
-    return jsonify(phmeter.read_status)
+    msg=str(phmeter.read_status())
+    return jsonify({"message":msg})
+    #return jsonify({"message": str(phmeter.read_status)})
 
 @phmeter_bp.route("/read_ph", methods=["GET"])
 def read_ph():
     """Read pH value, applying calibration."""
-    return jsonify(phmeter.read_ph)
+    ph = phmeter.read_ph()
+    return jsonify({"message":f"[INFO] The measured pH is {ph}"})
         
