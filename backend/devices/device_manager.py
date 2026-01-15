@@ -1,4 +1,4 @@
-from cvlab.devices import Arm, SolidDispenser, Mixer 
+from cvlab.devices import Arm, SolidDispenser, Mixer, Capper 
 from cvlab.utils.config import load_config
 import os
 
@@ -14,6 +14,11 @@ class DeviceManager:
             arm_url=config.ARM_URL,
             arm_aux_url=config.PLC_URL,
             arm_aux_port=config.PLC_PORT
+        )
+        self.capper = Capper(
+            name="Capper",
+            capper_url=config.PLC_URL,
+            capper_port=config.PLC_PORT
         )
         self.solids_dispenser = SolidDispenser(
             name="Quantos",
