@@ -1,4 +1,4 @@
-from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter 
+from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter, SyringePump 
 from cvlab.utils.config import load_config
 import os
 
@@ -40,6 +40,13 @@ class DeviceManager:
             phmeter_port=config.PH_PROBE_PORT,
             calibration_conf=PHMETER_CALIBRATION_CONF
         )
+        self.liquids_dispenser = SyringePump(
+            name="Liquids Pump",
+            syringe_pump_url=config.LIQUIDS_URL,
+            syringe_pump_aux_url=config.PLC_URL,
+            syringe_pump_aux_port=config.PLC_PORT
+        )
+
 
 # Singleton instance
 devices = DeviceManager()
