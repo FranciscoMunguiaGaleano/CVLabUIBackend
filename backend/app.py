@@ -7,6 +7,8 @@ from api.mixer_api import mixer_bp
 from api.capper_api import capper_bp
 from api.ph_api import phmeter_bp
 from api.liquids_dispenser_api import liquids_dispenser_bp
+from api.carousel_top_api import top_carousel_bp
+from api.carousel_bottom_api import bottom_carousel_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -18,6 +20,8 @@ app.register_blueprint(mixer_bp, url_prefix="/api/v1/mixer")
 app.register_blueprint(capper_bp, url_prefix="/api/v1/capper")
 app.register_blueprint(phmeter_bp, url_prefix="/api/v1/phmeter")
 app.register_blueprint(liquids_dispenser_bp, url_prefix="/api/v1/liquids_dispenser")
+app.register_blueprint(top_carousel_bp, url_prefix="/api/v1/top_carousel")
+app.register_blueprint(bottom_carousel_bp, url_prefix="/api/v1/bottom_carousel")
 
 @app.route("/health")
 def health():

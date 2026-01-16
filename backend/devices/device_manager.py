@@ -1,10 +1,12 @@
-from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter, SyringePump 
+from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter, SyringePump, TopCarousel, BottomCarousel 
 from cvlab.utils.config import load_config
 import os
 
 CWD_PATH = os.getcwd()
 CONF_PATH = os.getcwd()+"/data/conf/conf_dummy.json"
 PHMETER_CALIBRATION_CONF = os.getcwd()+"/data/calibration/ph_calibration.json"
+TOP_CAROUSEL_CONF = os.getcwd()+"/data/routines/top_carousel/top_carousel.json"
+BOTTOM_CAROUSEL_CONF = os.getcwd()+"/data/routines/bottom_carousel/bottom_carousel.json"
 
 class DeviceManager:
     def __init__(self):
@@ -45,6 +47,22 @@ class DeviceManager:
             syringe_pump_url=config.LIQUIDS_URL,
             syringe_pump_aux_url=config.PLC_URL,
             syringe_pump_aux_port=config.PLC_PORT
+        )
+        self.top_carousel = TopCarousel(
+            name="Top Carousel",
+            carousel_url=config.TOP_CAROUSEL_URL,
+            carousel_port=config.TOP_CAROUSEL_PORT,
+            conf_file=TOP_CAROUSEL_CONF
+        )
+        self.bottom_carousel = BottomCarousel(
+            name="Bottom Carousel",
+            carousel_url=config.BOTTOM_CAROUSEL_URL,
+            carousel_port=config.BOTTOM_CAROUSEL_PORT,
+            aux_carousel_pump_url=config.PUMPS_URL,
+            aux_carousel_pump_port=config.PUMPS_PORT,
+            aux_carousel_purger_url=config.PLC_URL,
+            aux_carousel_purger_port=config.PLC_PORT,
+            conf_file=BOTTOM_CAROUSEL_CONF
         )
 
 
