@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from devices.device_manager import devices
 import os
 import json
+import time
 
 
 quantos_bp = Blueprint("/api/v1/quantos", __name__)
@@ -64,3 +65,13 @@ def open_side_doors():
 @quantos_bp.route("/close_side_door", methods=["GET"])
 def close_side_doors():
     return jsonify(solids_dispenser.close_side_doors())
+# ------------------------------------------------------------------
+# Cartridge tower control
+# ------------------------------------------------------------------
+@quantos_bp.route("/set_tower_position", methods=["POST"])
+def set_cartridge_tower_position():
+    data = request.json or {}
+    pos = int(data.get("pos"))
+    msg = {"message":f"[INFO] Rotated cartridges tower to position: {pos}"}
+    solids_dispenser.set_cartridge_tower_position(pos);time.sleep(3)
+    return jsonify(msg)
