@@ -4,7 +4,11 @@ import os
 import json
 import time
 
+from math import trunc
 
+def truncate_float(number, digits):
+    factor = 10 ** digits
+    return trunc(number * factor) / factor
 
 robot_bp = Blueprint("/api/v1/robot", __name__)
 
@@ -18,9 +22,9 @@ arm = devices.arm
 def arm_status():
     try:
         status=arm.status()["response"]
-        X = float(status.split("X")[1].split("Y")[0])
-        Y = float(status.split("Y")[1].split("Z")[0])
-        Z = float(status.split("Z")[1].split("GRIPPER")[0])
+        X = truncate_float(float(status.split("X")[1].split("Y")[0]),3)
+        Y = truncate_float(float(status.split("Y")[1].split("Z")[0]),3)
+        Z = truncate_float(float(status.split("Z")[1].split("GRIPPER")[0]),3)
         GRIPPER = int(status.split("GRIPPER")[1])
         return jsonify({"message": f"[INFO] State: X {X} Y {Y} Z {Z} GRIPPER {GRIPPER}",
                         "X": X,
@@ -74,13 +78,13 @@ def arm_home():
 @robot_bp.route("/arm/open_gripper", methods=["POST"])
 def open_gripper():
     arm.open_gripper()
-    return jsonify({"ok": True})
+    return jsonify({"message": "[INFO] Gripper open"})
 
 
 @robot_bp.route("/arm/close_gripper", methods=["POST"])
 def close_gripper():
     arm.close_gripper()
-    return jsonify({"ok": True})
+    return jsonify({"message": "[INFO] Gripper closed"})
 
 @robot_bp.route("/arm/gcode", methods=["POST"])
 def send_gcode():
@@ -95,40 +99,46 @@ def send_gcode():
 @robot_bp.route("/arm/jog_x", methods=["POST"])
 def jog_x():
     data = request.json or {}
-    step = float(data.get("step"))
+    step = truncate_float(float(data.get("step")),3)
     status = arm.status()["response"]
     X_axis = float(status.split("X")[1].split("Y")[0])
     Y_axis = float(status.split("Y")[1].split("Z")[0])
     Z_axis = float(status.split("Z")[1].split("GRIPPER")[0])
     X_delta = X_axis+step
+    if X_delta<0:
+        X_delta = X_axis
     gcode=f"G1 X{X_delta} Y{Y_axis} Z{Z_axis}"
     arm.send_gcode(gcode)
-    return jsonify({"message": f"[INFO] Jogging z axis: {gcode}"})
+    return jsonify({"message": f"[INFO] Jogging x axis: {gcode}"})
 
 
 @robot_bp.route("/arm/jog_y", methods=["POST"])
 def jog_y():
     data = request.json or {}
-    step = float(data.get("step"))
-    positions = arm.status()["response"]
-    X_axis = float(positions["X"])
-    Y_axis=float(positions["Y"])
-    Z_axis=float(positions["Z"])
+    step = truncate_float(float(data.get("step")),3)
+    status = arm.status()["response"]
+    X_axis = float(status.split("X")[1].split("Y")[0])
+    Y_axis = float(status.split("Y")[1].split("Z")[0])
+    Z_axis = float(status.split("Z")[1].split("GRIPPER")[0])
     Y_delta = Y_axis+step
+    if Y_delta<0:
+        Y_delta = Y_axis
     gcode=f"G1 X{X_axis} Y{Y_delta} Z{Z_axis}"
     arm.send_gcode(gcode)
-    return jsonify({"message": f"[INFO] Jogging z axis: {gcode}"})
+    return jsonify({"message": f"[INFO] Jogging y axis: {gcode}"})
 
 
 @robot_bp.route("/arm/jog_z", methods=["POST"])
 def jog_z():
     data = request.json or {}
-    step = float(data.get("step"))
-    positions = arm.status()["response"]
-    X_axis = float(positions["X"])
-    Y_axis=float(positions["Y"])
-    Z_axis=float(positions["Z"])
+    step = truncate_float(float(data.get("step")),3)
+    status = arm.status()["response"]
+    X_axis = float(status.split("X")[1].split("Y")[0])
+    Y_axis = float(status.split("Y")[1].split("Z")[0])
+    Z_axis = float(status.split("Z")[1].split("GRIPPER")[0])
     Z_delta = Z_axis+step
+    if Z_delta<0:
+        Z_delta = Z_axis
     gcode=f"G1 X{X_axis} Y{Y_axis} Z{Z_delta}"
     arm.send_gcode(gcode)
     return jsonify({"message": f"[INFO] Jogging z axis: {gcode}"})
