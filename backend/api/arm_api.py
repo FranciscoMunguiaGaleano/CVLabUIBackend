@@ -22,10 +22,20 @@ arm = devices.arm
 def arm_status():
     try:
         status=arm.status()["response"]
+        print(status)
         X = truncate_float(float(status.split("X")[1].split("Y")[0]),3)
+        print(f"X{X}")
         Y = truncate_float(float(status.split("Y")[1].split("Z")[0]),3)
+        print(f"X{Y}")
         Z = truncate_float(float(status.split("Z")[1].split("GRIPPER")[0]),3)
-        GRIPPER = int(status.split("GRIPPER")[1])
+        print(f"X{Z}")
+        GRIPPER = 0
+        print("aki")
+        print({"message": f"[INFO] State: X {X} Y {Y} Z {Z} GRIPPER {GRIPPER}",
+                        "X": X,
+                        "Y": Y,
+                        "Z": Z,
+                        "GRIPPER": GRIPPER})
         return jsonify({"message": f"[INFO] State: X {X} Y {Y} Z {Z} GRIPPER {GRIPPER}",
                         "X": X,
                         "Y": Y,
@@ -72,6 +82,9 @@ def load_arm_routine(name):
 @robot_bp.route("/arm/home", methods=["POST"])
 def arm_home():
     arm.home()
+    arm.X_axis = 0.0
+    arm.Y_axis = 0.0
+    arm.Z_axis = 0.0
     return jsonify({"message": "[INFO] Homing arm."})
 
 
@@ -89,11 +102,13 @@ def close_gripper():
 @robot_bp.route("/arm/gcode", methods=["POST"])
 def send_gcode():
     data = request.json
+    print(data)
     gcode = data.get("gcode")
     if not gcode:
         return jsonify({"error": "Missing gcode"}), 400
 
-    arm.send_gcode(gcode)
+    response = arm.send_gcode(gcode)
+    print(response)
     return jsonify({"ok": True, "gcode": gcode})
 
 @robot_bp.route("/arm/jog_x", methods=["POST"])
@@ -107,8 +122,9 @@ def jog_x():
     X_delta = X_axis+step
     if X_delta<0:
         X_delta = X_axis
-    gcode=f"G1 X{X_delta} Y{Y_axis} Z{Z_axis}"
+    gcode=f"G1 X{X_delta} Y{Y_axis} Z{Z_axis} F100"
     arm.send_gcode(gcode)
+    arm.X_axis = X_delta
     return jsonify({"message": f"[INFO] Jogging x axis: {gcode}"})
 
 
@@ -125,6 +141,7 @@ def jog_y():
         Y_delta = Y_axis
     gcode=f"G1 X{X_axis} Y{Y_delta} Z{Z_axis}"
     arm.send_gcode(gcode)
+    arm.Y_axis = Y_delta
     return jsonify({"message": f"[INFO] Jogging y axis: {gcode}"})
 
 
@@ -141,5 +158,6 @@ def jog_z():
         Z_delta = Z_axis
     gcode=f"G1 X{X_axis} Y{Y_axis} Z{Z_delta}"
     arm.send_gcode(gcode)
+    arm.Z_axis = Z_delta
     return jsonify({"message": f"[INFO] Jogging z axis: {gcode}"})
 

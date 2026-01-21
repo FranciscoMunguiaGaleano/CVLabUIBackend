@@ -3,7 +3,8 @@ from cvlab.utils.config import load_config
 import os
 
 CWD_PATH = os.getcwd()
-CONF_PATH = os.getcwd()+"/data/conf/conf_dummy.json"
+#CONF_PATH = os.getcwd()+"/data/conf/conf_dummy.json"
+CONF_PATH = os.getcwd()+"/data/conf/devices_urls.json"
 PHMETER_CALIBRATION_CONF = os.getcwd()+"/data/calibration/ph_calibration.json"
 TOP_CAROUSEL_CONF = os.getcwd()+"/data/routines/top_carousel/top_carousel.json"
 BOTTOM_CAROUSEL_CONF = os.getcwd()+"/data/routines/bottom_carousel/bottom_carousel.json"
@@ -11,7 +12,6 @@ BOTTOM_CAROUSEL_CONF = os.getcwd()+"/data/routines/bottom_carousel/bottom_carous
 class DeviceManager:
     def __init__(self):
         config = load_config(CONF_PATH)
-       
         self.arm = Arm(
             name="Arm",
             arm_url=config.ARM_URL,

@@ -55,6 +55,7 @@ def unlock_dosing_head():
 # ------------------------------------------------------------------
 @quantos_bp.route("/open_front_door", methods=["GET"])
 def open_front_door():
+    print("here")
     return jsonify(solids_dispenser.open_front_door())
 @quantos_bp.route("/close_front_door", methods=["GET"])
 def close_front_door():
