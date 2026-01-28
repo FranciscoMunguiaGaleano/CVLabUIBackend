@@ -56,7 +56,7 @@ def list_arm_routines():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@robot_bp.route("/arm/routines/<string:name>", methods=["GET"])
+@robot_bp.route("/arm/routines/load/<string:name>", methods=["GET"])
 def load_arm_routine(name):
     path = os.path.join(ROUTINES_DIR, name)
 
@@ -68,11 +68,47 @@ def load_arm_routine(name):
             data = json.load(f)
 
         gcodes = data.get("GCODES", [])
-        g1_only = [g for g in gcodes if g.strip().startswith("G1")]
+        #g1_only = [g for g in gcodes if g.strip().startswith("G1")]
 
         return jsonify({
+            "message": f"[INFO] Routine {name} has been loaded.",
             "name": name,
-            "gcodes": g1_only
+            "gcodes": gcodes
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@robot_bp.route("/arm/routines/save/<string:name>", methods=["POST"])
+def save_arm_routine(name):
+    """
+    Save updated GCODES from the frontend table into the routine file.
+    Expects JSON payload like:
+    {
+        "gcodes": ["G90", "G21", "G1 X10", "M100", "M200"]
+    }
+    """
+    path = os.path.join(ROUTINES_DIR, name)
+
+    if not os.path.isfile(path):
+        return jsonify({"error": "Routine not found"}), 404
+
+    try:
+        # Get the updated gcodes from request body
+        data = request.get_json()
+        if not data or "gcodes" not in data:
+            return jsonify({"error": "Missing 'gcodes' in request"}), 400
+
+        updated_gcodes = data["gcodes"]
+
+        # Save the updated GCODES to the file
+        with open(path, "w") as f:
+            json.dump({"GCODES": updated_gcodes}, f, indent=4)
+
+        return jsonify({
+            "message": f"[INFO] Routine {name} has been updated successfully.",
+            "name": name,
+            "gcodes": updated_gcodes
         })
 
     except Exception as e:
