@@ -1,0 +1,195 @@
+from flask import Blueprint, jsonify, request
+from devices.device_manager import devices
+import os
+import json
+from math import trunc
+
+def truncate_float(number, digits):
+    factor = 10 ** digits
+    return trunc(number * factor) / factor
+
+
+pipettebot_bp = Blueprint("/api/v1/pipettebot", __name__)
+
+ROUTINES_DIR = os.getcwd() + "/data/routines/pipette"
+
+pipettebot = devices.echem
+
+# ------------------------------------------------------------------
+# Pipette arm motion
+# ------------------------------------------------------------------
+@pipettebot_bp.route("/pipette_arm_home", methods=["GET"])
+def pipette_arm_home(): 
+    pipettebot.pipette_arm_home()
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_arm_unlock", methods=["GET"])
+def pipette_arm_unlock(): 
+    pipettebot.pipette_arm_unlock()
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_arm_sleep", methods=["GET"])
+def pipette_arm_sleep(): 
+    pipettebot.pipette_arm_sleep()
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_arm_reset", methods=["GET"])
+def pipette_arm_reset(): 
+    pipettebot.pipette_arm_reset()
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_arm_send_gcode", methods=["POST"])
+def pipette_arm_send_gcode():
+    data=request.json
+    gcode = data["gcode"] 
+    pipettebot.pipette_arm_send_gcode(gcode)
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_arm_execute_routine", methods=["POST"])
+def pipette_arm_execute_routine():# POST
+    data=request.json
+    file = data["file"] 
+    pipettebot.pipette_arm_execute_routine(file)
+    msg=""
+    return msg
+# ------------------------------------------------------------------
+# Pipette servo/head
+# ------------------------------------------------------------------
+@pipettebot_bp.route("/pipette_home", methods=["GET"])
+def pipette_home(self): 
+    pipettebot.pipette_home()
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_eject_tip", methods=["GET"])
+def pipette_eject_tip(self): 
+    pipettebot.pipette_eject_tip()
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_preload", methods=["GET"])
+def pipette_preload(self): 
+    pipettebot.pipette_preload()
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_load", methods=["GET"])
+def pipette_load(self): 
+    pipettebot.pipette_load()
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_unload", methods=["GET"])
+def pipette_unload(self): 
+    pipettebot.pipette_unload()
+    msg=""
+    return msg
+@pipettebot_bp.route("/pipette_set_speed", methods=["POST"])
+def pipette_set_speed(self, speed): 
+    data=request.json
+    speed = data["speed"] 
+    pipettebot.pipette_set_speed(speed)
+    msg=""
+    return msg
+# ------------------------------------------------------------------
+# Pipette endpoint to load and save changes in routines files
+# ------------------------------------------------------------------
+@pipettebot_bp.route("/routines", methods=["GET"])
+def list_routines():
+    try:
+        files = [
+            f for f in os.listdir(ROUTINES_DIR)
+            if f.endswith(".json")
+        ]
+        return jsonify({"routines": sorted(files)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+@pipettebot_bp.route("/routines/load/<string:name>", methods=["GET"])
+def load_routine(name):
+    path = os.path.join(ROUTINES_DIR, name)
+
+    if not os.path.isfile(path):
+        return jsonify({"error": "Routine not found"}), 404
+
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+
+        gcodes = data.get("GCODES", [])
+        #g1_only = [g for g in gcodes if g.strip().startswith("G1")]
+
+        return jsonify({
+            "message": f"[INFO] Routine {name} has been loaded.",
+            "name": name,
+            "gcodes": gcodes
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@pipettebot_bp.route("/routines/save/<string:name>", methods=["POST"])
+def save_routine(name):
+    """
+    Save updated GCODES from the frontend table into the routine file.
+    Expects JSON payload like:
+    {
+        "gcodes": ["G90", "G21", "G1 X10", "M100", "M200"]
+    }
+    """
+    path = os.path.join(ROUTINES_DIR, name)
+
+    if not os.path.isfile(path):
+        return jsonify({"error": "Routine not found"}), 404
+
+    try:
+        # Get the updated gcodes from request body
+        data = request.get_json()
+        if not data or "gcodes" not in data:
+            return jsonify({"error": "Missing 'gcodes' in request"}), 400
+
+        updated_gcodes = data["gcodes"]
+
+        # Save the updated GCODES to the file
+        with open(path, "w") as f:
+            json.dump({"GCODES": updated_gcodes}, f, indent=4)
+
+        return jsonify({
+            "message": f"[INFO] Routine {name} has been updated successfully.",
+            "name": name,
+            "gcodes": updated_gcodes
+        })
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# ------------------------------------------------------------------
+# Jogging routines
+# ------------------------------------------------------------------
+@pipettebot_bp.route("/jog_x", methods=["POST"])
+def jog_x():
+    data = request.json or {}
+    step = truncate_float(float(data.get("step")),3)
+    status = pipettebot.pipette_arm_status()["response"]
+    X_axis = float(status.split("X")[1].split("Y")[0])
+    Y_axis = float(status.split("Y")[1].split("Z")[0])
+    Z_axis = float(status.split("Z")[1].split("GRIPPER")[0])
+    X_delta = X_axis+step
+    if X_delta<0:
+        X_delta = X_axis
+    gcode=f"G1 X{X_delta} Y{Y_axis} Z{Z_axis} F100"
+    pipettebot.pipette_arm_send_gcode(gcode)
+    #pipettebot.pipettebot_set_X_axis(X_delta)
+    return jsonify({"message": f"[INFO] Jogging x axis: {gcode}"})
+
+
+@pipettebot_bp.route("/jog_y", methods=["POST"])
+def jog_y():
+    data = request.json or {}
+    step = truncate_float(float(data.get("step")),3)
+    status = pipettebot.pipette_arm_status()["response"]
+    X_axis = float(status.split("X")[1].split("Y")[0])
+    Y_axis = float(status.split("Y")[1].split("Z")[0])
+    Z_axis = float(status.split("Z")[1].split("GRIPPER")[0])
+    Y_delta = Y_axis+step
+    if Y_delta<0:
+        Y_delta = Y_axis
+    gcode=f"G1 X{X_axis} Y{Y_delta} Z{Z_axis}"
+    pipettebot.pipette_arm_send_gcode(gcode)
+    #pipettebot.pipettebot_set_Y_axis(Y_delta)
+    return jsonify({"message": f"[INFO] Jogging y axis: {gcode}"})

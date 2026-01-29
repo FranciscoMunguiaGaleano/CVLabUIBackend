@@ -1,4 +1,4 @@
-from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter, SyringePump, TopCarousel, BottomCarousel 
+from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter, SyringePump, TopCarousel, BottomCarousel, Echem
 from cvlab.utils.config import load_config
 import os
 
@@ -63,6 +63,17 @@ class DeviceManager:
             aux_carousel_purger_url=config.PLC_URL,
             aux_carousel_purger_port=config.PLC_PORT,
             conf_file=BOTTOM_CAROUSEL_CONF
+        )
+        self.echem = Echem(
+            name="Echem",
+            echem_url=config.ECHEM_URL,
+            echem_aux_url=config.ECHEM_AUX_URL,
+            echem_aux_port=config.ECHEM_AUX_PORT,
+            pipette_url=config.PIPETTE_URL,
+            pipette_aux_url=config.PIPETTE_AUX_URL,
+            pipette_aux_port=config.PIPETTE_AUX_PORT,
+            plc_url=config.PLC_URL,
+            plc_port=config.PLC_PORT
         )
 
 
