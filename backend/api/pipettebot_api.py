@@ -18,6 +18,11 @@ pipettebot = devices.echem
 # ------------------------------------------------------------------
 # Pipette arm motion
 # ------------------------------------------------------------------
+@pipettebot_bp.route("/status", methods=["POST"])
+def pipette_arm_status(): 
+    print(pipettebot.pipette_arm_status())
+    msg={"message": "[INFO] fetching status"}
+    return msg
 @pipettebot_bp.route("/pipette_arm_home", methods=["GET"])
 def pipette_arm_home(): 
     pipettebot.pipette_arm_home()
