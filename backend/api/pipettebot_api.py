@@ -3,6 +3,12 @@ from devices.device_manager import devices
 import os
 import json
 from math import trunc
+import re
+
+
+
+
+
 
 def truncate_float(number, digits):
     factor = 10 ** digits
@@ -20,10 +26,16 @@ pipettebot = devices.echem
 # ------------------------------------------------------------------
 @pipettebot_bp.route("/status", methods=["POST"])
 def pipette_arm_status(): 
-    print(pipettebot.pipette_arm_status())
-    msg={"message": "[INFO] fetching status"}
-    return msg
-@pipettebot_bp.route("/pipette_arm_home", methods=["GET"])
+    msg=pipettebot.pipette_arm_status()
+    pattern = r"X(?P<X>-?\d+(?:\.\d+)?)Y(?P<Y>-?\d+(?:\.\d+)?)Z(?P<Z>-?\d+(?:\.\d+)?)"
+    match = re.search(pattern, msg["response"])
+    if match:
+        x = float(match.group("X"))
+        y = float(match.group("Y"))
+        z = float(match.group("Z"))
+    print(msg["response"])
+    return {"message": "[INFO] "+msg["response"], "X":x, "Y":y, "Z":z}
+@pipettebot_bp.route("/pipette_arm_home", methods=["POST"])
 def pipette_arm_home(): 
     pipettebot.pipette_arm_home()
     msg=""
@@ -183,18 +195,24 @@ def jog_x():
     return jsonify({"message": f"[INFO] Jogging x axis: {gcode}"})
 
 
-@pipettebot_bp.route("/jog_y", methods=["POST"])
-def jog_y():
+@pipettebot_bp.route("/jog_z", methods=["POST"])
+def jog_z():
     data = request.json or {}
     step = truncate_float(float(data.get("step")),3)
     status = pipettebot.pipette_arm_status()["response"]
-    X_axis = float(status.split("X")[1].split("Y")[0])
-    Y_axis = float(status.split("Y")[1].split("Z")[0])
-    Z_axis = float(status.split("Z")[1].split("GRIPPER")[0])
-    Y_delta = Y_axis+step
-    if Y_delta<0:
-        Y_delta = Y_axis
-    gcode=f"G1 X{X_axis} Y{Y_delta} Z{Z_axis}"
-    pipettebot.pipette_arm_send_gcode(gcode)
-    #pipettebot.pipettebot_set_Y_axis(Y_delta)
-    return jsonify({"message": f"[INFO] Jogging y axis: {gcode}"})
+    pattern = r"X(?P<X>-?\d+(?:\.\d+)?)Y(?P<Y>-?\d+(?:\.\d+)?)Z(?P<Z>-?\d+(?:\.\d+)?)"
+    match = re.search(pattern, status)
+    if match:
+        X_axis = float(match.group("X"))
+        Y_axis = float(match.group("Y"))
+        Z_axis = float(match.group("Z"))
+        print(Z_axis)
+        Z_delta = Z_axis+step
+        if Z_delta<0:
+            Z_delta = Z_axis
+        gcode=f"G1 X{X_axis} Y{Y_axis} Z{Z_delta}"
+        print(gcode, step)
+        pipettebot.pipette_arm_send_gcode(gcode)
+        return jsonify({"message": f"[INFO] Jogging y axis: {gcode}"})
+    else:
+        return jsonify({"message": f"[ERROR] The controller in unavailable."})
