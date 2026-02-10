@@ -33,13 +33,10 @@ def pipette_arm_status():
         x = float(match.group("X"))
         y = float(match.group("Y"))
         z = float(match.group("Z"))
-    print(msg["response"])
     return {"message": "[INFO] "+msg["response"], "X":x, "Y":y, "Z":z}
 @pipettebot_bp.route("/pipette_arm_home", methods=["POST"])
 def pipette_arm_home(): 
-    pipettebot.pipette_arm_home()
-    msg=""
-    return msg
+    return pipettebot.pipette_arm_home()
 @pipettebot_bp.route("/pipette_arm_unlock", methods=["GET"])
 def pipette_arm_unlock(): 
     pipettebot.pipette_arm_unlock()
@@ -59,9 +56,8 @@ def pipette_arm_reset():
 def pipette_arm_send_gcode():
     data=request.json
     gcode = data["gcode"] 
-    pipettebot.pipette_arm_send_gcode(gcode)
-    msg=""
-    return msg
+    msg = pipettebot.pipette_arm_send_gcode(gcode)['response']
+    return jsonify({"message": msg})
 @pipettebot_bp.route("/pipette_arm_execute_routine", methods=["POST"])
 def pipette_arm_execute_routine():# POST
     data=request.json
@@ -191,7 +187,7 @@ def jog_x():
         X_delta = X_axis
     gcode=f"G1 X{X_delta} Y{Y_axis} Z{Z_axis} F100"
     pipettebot.pipette_arm_send_gcode(gcode)
-    #pipettebot.pipettebot_set_X_axis(X_delta)
+    pipettebot.pipette_arm_set_X_axis(X_delta)
     return jsonify({"message": f"[INFO] Jogging x axis: {gcode}"})
 
 
@@ -213,6 +209,7 @@ def jog_z():
         gcode=f"G1 X{X_axis} Y{Y_axis} Z{Z_delta}"
         print(gcode, step)
         pipettebot.pipette_arm_send_gcode(gcode)
+        pipettebot.pipette_arm_set_Z_axis(Z_delta)
         return jsonify({"message": f"[INFO] Jogging y axis: {gcode}"})
     else:
         return jsonify({"message": f"[ERROR] The controller in unavailable."})
