@@ -68,33 +68,28 @@ def pipette_arm_execute_routine():# POST
 # ------------------------------------------------------------------
 # Pipette servo/head
 # ------------------------------------------------------------------
-@pipettebot_bp.route("/pipette_home", methods=["GET"])
-def pipette_home(self): 
-    pipettebot.pipette_home()
-    msg=""
-    return msg
-@pipettebot_bp.route("/pipette_eject_tip", methods=["GET"])
-def pipette_eject_tip(self): 
-    pipettebot.pipette_eject_tip()
-    msg=""
-    return msg
-@pipettebot_bp.route("/pipette_preload", methods=["GET"])
-def pipette_preload(self): 
-    pipettebot.pipette_preload()
-    msg=""
-    return msg
-@pipettebot_bp.route("/pipette_load", methods=["GET"])
-def pipette_load(self): 
-    pipettebot.pipette_load()
-    msg=""
-    return msg
-@pipettebot_bp.route("/pipette_unload", methods=["GET"])
-def pipette_unload(self): 
-    pipettebot.pipette_unload()
-    msg=""
-    return msg
+@pipettebot_bp.route("/pipette_home", methods=["POST"])
+def pipette_home(): 
+    msg = pipettebot.pipette_home()
+    return jsonify({"message":"[INFO] Homing pipette."})
+@pipettebot_bp.route("/pipette_eject_tip", methods=["POST"])
+def pipette_eject_tip(): 
+    msg=pipettebot.pipette_eject_tip()
+    return jsonify({"message":"[INFO] Ejecting Tip"})
+@pipettebot_bp.route("/pipette_preload", methods=["POST"])
+def pipette_preload(): 
+    msg=pipettebot.pipette_preload()
+    return jsonify({"message":"[INFO] Preloading pipette."})
+@pipettebot_bp.route("/pipette_load", methods=["POST"])
+def pipette_load(): 
+    msg=pipettebot.pipette_load()
+    return jsonify({"message":"[INFO] Loading pipette"})
+@pipettebot_bp.route("/pipette_unload", methods=["POST"])
+def pipette_unload(): 
+    msg=pipettebot.pipette_unload()
+    return jsonify({"message":"[INFO] Sampling..."})
 @pipettebot_bp.route("/pipette_set_speed", methods=["POST"])
-def pipette_set_speed(self, speed): 
+def pipette_set_speed(speed): 
     data=request.json
     speed = data["speed"] 
     pipettebot.pipette_set_speed(speed)
