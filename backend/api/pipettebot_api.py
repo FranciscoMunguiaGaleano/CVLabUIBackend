@@ -30,9 +30,9 @@ def pipette_arm_status():
     pattern = r"X(?P<X>-?\d+(?:\.\d+)?)Y(?P<Y>-?\d+(?:\.\d+)?)Z(?P<Z>-?\d+(?:\.\d+)?)"
     match = re.search(pattern, msg["response"])
     if match:
-        x = float(match.group("X"))
-        y = float(match.group("Y"))
-        z = float(match.group("Z"))
+        x = truncate_float(float(match.group("X")),3)
+        y = truncate_float(float(match.group("Y")),3)
+        z = truncate_float(float(match.group("Z")),3)
     return {"message": "[INFO] "+msg["response"], "X":x, "Y":y, "Z":z}
 @pipettebot_bp.route("/pipette_arm_home", methods=["POST"])
 def pipette_arm_home(): 
