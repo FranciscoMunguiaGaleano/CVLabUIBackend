@@ -1,4 +1,4 @@
-from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter, SyringePump, TopCarousel, BottomCarousel, Echem
+from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter, SyringePump, TopCarousel, BottomCarousel, Echem, Camera
 from cvlab.utils.config import load_config
 import os
 
@@ -74,6 +74,10 @@ class DeviceManager:
             pipette_aux_port=config.PIPETTE_AUX_PORT,
             plc_url=config.PLC_URL,
             plc_port=config.PLC_PORT
+        )
+        self.camera = Camera(
+            name="EchemCamera",
+            camera_url=config.CAMERA_URL
         )
 
 

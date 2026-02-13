@@ -16,6 +16,16 @@ echem_bp = Blueprint("/api/v1/echem", __name__)
 ROUTINES_DIR = os.getcwd() + "/data/routines/echem"
 
 echem = devices.echem
+camera = devices.camera
+
+
+# ------------------------------------------------------------------
+# Camera
+# ------------------------------------------------------------------
+
+@echem_bp.route("/capture", methods=["GET"])
+def get_image():
+    return camera.capture()
 
 # ------------------------------------------------------------------
 # Echem arm motion
@@ -67,13 +77,15 @@ def echem_arm_execute_routine():# POST
 # ------------------------------------------------------------------
 # Polisher control
 # ------------------------------------------------------------------
-@echem_bp.route("/echem_polisher_off", methods=["POST"])
+@echem_bp.route("/echem_polisher_on", methods=["POST"])
 def polisher_on():
     msg = {"message":"[INFO] Polisher ON"}
+    echem.polisher_on()
     return jsonify(msg)
 @echem_bp.route("/echem_polisher_off", methods=["POST"])
 def polisher_off():
     msg = {"message": "[INFO] Polisher OFF"}
+    echem.polisher_off()
     return jsonify(msg)
 # ------------------------------------------------------------------
 # Alumina dropper
@@ -81,11 +93,13 @@ def polisher_off():
 @echem_bp.route("/echem_polisher_dropper_on", methods=["POST"])
 def polisher_dropper_on():
     msg = {"message":"[INFO] Dropper ON"}
+    echem.polisher_dropper_on()
     return jsonify(msg)
 
 @echem_bp.route("/echem_polisher_dropper_off", methods=["POST"])
 def polisher_dropper_off():
     msg = {"message": "[INFO] Dropper OFF"}
+    echem.polisher_dropper_off
     return jsonify(msg)
 # ------------------------------------------------------------------
 # Electrodes vertical translation
@@ -93,7 +107,7 @@ def polisher_dropper_off():
 @echem_bp.route("/echem_raise_electrodes", methods=["POST"])
 def raise_electrodes():
     msg = {"message":"[INFO] Raising electrodes"}
-    echem.rise_elecotrodes()
+    echem.raise_electrodes()
     return jsonify(msg)
 @echem_bp.route("/echem_lower_electrodes", methods=["POST"])
 def lower_electrodes():
