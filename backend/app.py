@@ -10,6 +10,7 @@ from api.liquids_dispenser_api import liquids_dispenser_bp
 from api.carousel_top_api import top_carousel_bp
 from api.carousel_bottom_api import bottom_carousel_bp
 from api.pipettebot_api import pipettebot_bp
+from api.echem_api import echem_bp
 
 app = Flask(__name__)
 CORS(app)
@@ -24,6 +25,7 @@ app.register_blueprint(liquids_dispenser_bp, url_prefix="/api/v1/liquids_dispens
 app.register_blueprint(top_carousel_bp, url_prefix="/api/v1/top_carousel")
 app.register_blueprint(bottom_carousel_bp, url_prefix="/api/v1/bottom_carousel")
 app.register_blueprint(pipettebot_bp, url_prefix="/api/v1/pipettebot")
+app.register_blueprint(echem_bp, url_prefix="/api/v1/echem")
 
 @app.route("/health")
 def health():
