@@ -75,13 +75,27 @@ def echem_arm_execute_routine():# POST
 # Echem polisher, dropper and camera
 # ------------------------------------------------------------------
 # ------------------------------------------------------------------
-# Polisher control
+# Purger control
+# ------------------------------------------------------------------
+@echem_bp.route("/echem_purger_on", methods=["POST"])
+def purger_on():
+    msg = {"message":"[INFO] Purger ON"}
+    echem.purger_on()
+    return jsonify(msg)
+@echem_bp.route("/echem_purger_off", methods=["POST"])
+def purger_off():
+    msg = {"message": "[INFO] Purger OFF"}
+    echem.purger_off()
+    return jsonify(msg)
+# ------------------------------------------------------------------
+# Polisher
 # ------------------------------------------------------------------
 @echem_bp.route("/echem_polisher_on", methods=["POST"])
 def polisher_on():
     msg = {"message":"[INFO] Polisher ON"}
     echem.polisher_on()
     return jsonify(msg)
+
 @echem_bp.route("/echem_polisher_off", methods=["POST"])
 def polisher_off():
     msg = {"message": "[INFO] Polisher OFF"}
@@ -99,7 +113,7 @@ def polisher_dropper_on():
 @echem_bp.route("/echem_polisher_dropper_off", methods=["POST"])
 def polisher_dropper_off():
     msg = {"message": "[INFO] Dropper OFF"}
-    echem.polisher_dropper_off
+    echem.polisher_dropper_off()
     return jsonify(msg)
 # ------------------------------------------------------------------
 # Electrodes vertical translation
