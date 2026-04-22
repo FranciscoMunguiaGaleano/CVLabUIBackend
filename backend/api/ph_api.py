@@ -19,5 +19,6 @@ def read_status():
 def read_ph():
     """Read pH value, applying calibration."""
     ph = phmeter.read_ph()
+    print(ph)
     return jsonify({"message":f"[INFO] The measured pH is {ph}"})
         
