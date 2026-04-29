@@ -1,4 +1,4 @@
-from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter, SyringePump, TopCarousel, BottomCarousel, Echem, Camera, ToledoPhMeter
+from cvlab.devices import Arm, SolidDispenser, Mixer, Capper, PHMeter, SyringePump, TopCarousel, BottomCarousel, Echem, Camera, ToledoPhMeter, PotentiostatClient
 from cvlab.utils.config import load_config
 import os
 
@@ -12,6 +12,7 @@ BOTTOM_CAROUSEL_CONF = os.getcwd()+"/data/routines/bottom_carousel/bottom_carous
 class DeviceManager:
     def __init__(self):
         config = load_config(CONF_PATH)
+        print(config)
         self.arm = Arm(
             name="Arm",
             arm_url=config.ARM_URL,
@@ -84,6 +85,10 @@ class DeviceManager:
             toledophmeter_url=config.TOLEDO_PH_METER_URL, 
             servo_url=config.SERVO_URL, 
             servo_port=config.SERVO_PORT
+        )
+        self.potentiostats = PotentiostatClient(
+            name= "Ossila Potentiostats",
+            base_url=config.POTENTIOSTASTS_URL
         )
 
 # Singleton instance
