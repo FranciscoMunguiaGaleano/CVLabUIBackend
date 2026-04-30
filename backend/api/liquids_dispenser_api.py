@@ -29,6 +29,7 @@ def piston_to_home_position():
 def status():
     """Reading status"""
     msg = liquids_dispenser.status()
+    print(msg)
     return jsonify(msg)
 @liquids_dispenser_bp.route("/get_valve_pos", methods=["GET"])
 def get_valve_pos():
