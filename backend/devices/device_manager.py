@@ -3,8 +3,9 @@ from cvlab.utils.config import load_config
 import os
 
 CWD_PATH = os.getcwd()
-#CONF_PATH = os.getcwd()+"/data/conf/conf_dummy.json"
-CONF_PATH = os.getcwd()+"/data/conf/devices_urls.json"
+#CONF_PATH = os.getcwd()+"/data/conf/conf_dummy.json" #Silumation when the ip is not fixed
+CONF_PATH = os.getcwd()+"/data/conf/conf_dummy_fixed_ip.json" #Silumation when the ip is fixex(computer connected to the nextwork)
+#CONF_PATH = os.getcwd()+"/data/conf/devices_urls.json" # Real machine
 PHMETER_CALIBRATION_CONF = os.getcwd()+"/data/calibration/ph_calibration.json"
 TOP_CAROUSEL_CONF = os.getcwd()+"/data/routines/top_carousel/top_carousel.json"
 BOTTOM_CAROUSEL_CONF = os.getcwd()+"/data/routines/bottom_carousel/bottom_carousel.json"
