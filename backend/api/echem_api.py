@@ -11,12 +11,166 @@ def truncate_float(number, digits):
     return trunc(number * factor) / factor
 
 
+
+
+
 echem_bp = Blueprint("/api/v1/echem", __name__)
 
 ROUTINES_DIR = os.getcwd() + "/data/routines/echem"
 
 echem = devices.echem
 camera = devices.camera
+
+# ---------------------------------------------------
+# Helpers
+# ---------------------------------------------------
+
+def get_current_position():
+    """
+    Reads current XYZ position from robot status.
+    """
+
+    msg = echem.status()
+    pattern = r"X(?P<X>-?\d+(?:\.\d+)?)Y(?P<Y>-?\d+(?:\.\d+)?)Z(?P<Z>-?\d+(?:\.\d+)?)"
+    match = re.search(pattern, msg["response"])
+    if match:
+        X = truncate_float(float(match.group("X")),3)
+        Y = truncate_float(float(match.group("Y")),3)
+        Z = truncate_float(float(match.group("Z")),3)
+
+    return X, Y, Z
+
+
+def extract_axis(gcode, axis):
+    """
+    Extract axis from GCODE.
+
+    Example:
+        extract_axis("G1 X10 Y20", "X")
+    """
+
+    match = re.search(rf"{axis}(-?\d+\.?\d*)", gcode)
+
+    if match:
+        return float(match.group(1))
+
+    return None
+
+
+def ensure_feedrate(gcode, default_feedrate=500):
+    """
+    Automatically add feedrate if missing.
+    """
+
+    if gcode.startswith("G1") and "F" not in gcode:
+        gcode += f" F{default_feedrate}"
+
+    return gcode
+
+
+def update_cached_position(gcode):
+    """
+    Updates cached arm coordinates from G1 commands.
+    """
+
+    if not gcode.startswith("G1"):
+        return
+
+    x = extract_axis(gcode, "X")
+    y = extract_axis(gcode, "Y")
+    z = extract_axis(gcode, "Z")
+
+    if x is not None:
+        echem.X_axis = truncate_float(x, 3)
+
+    if y is not None:
+        echem.Y_axis = truncate_float(y, 3)
+
+    if z is not None:
+        echem.Z_axis = truncate_float(z, 3)
+
+
+def process_special_commands(gcode):
+    """
+    Handles custom M commands.
+    """
+
+    command = gcode.strip()
+
+    if command == "M101":
+        echem.raise_electrodes()
+
+        return {
+            "ok": True,
+            "message": "[INFO] Electrodes raised"
+        }
+
+    elif command == "M201":
+        echem.lower_electrodes()
+
+        return {
+            "ok": True,
+            "message": "[INFO] Electrodes lowered"
+        }
+
+    return None
+
+
+def send_robot_gcode(gcode):
+    """
+    Centralized GCODE handler.
+
+    Features:
+    - Handles M10n/M20n
+    - Injects feedrate automatically
+    - Updates cached XYZ
+    """
+
+    # Handle custom commands first
+    special = process_special_commands(gcode)
+
+    if special:
+        return special
+
+    # Ensure feedrate exists
+    gcode = ensure_feedrate(gcode)
+
+    # Send to robot
+    response = echem.send_gcode(gcode)
+
+    print(response)
+
+    # Update cached XYZ
+    update_cached_position(gcode)
+
+    return {
+        "ok": True,
+        "gcode": gcode
+    }
+
+
+def jog_axis(axis, step):
+    """
+    Generic jog helper.
+    """
+
+    X, Y, Z = get_current_position()
+
+    if axis == "X":
+        X = max(0, truncate_float(X + step, 3))
+
+    elif axis == "Y":
+        Y = max(0, truncate_float(Y + step, 3))
+
+    elif axis == "Z":
+        Z = max(0, truncate_float(Z + step, 3))
+
+    gcode = f"G1 X{X} Y{Y} Z{Z}"
+
+    send_robot_gcode(gcode)
+
+    return gcode
+
 
 
 # ------------------------------------------------------------------
@@ -31,7 +185,7 @@ def get_image():
 # Echem arm motion
 # ------------------------------------------------------------------
 @echem_bp.route("/status", methods=["POST"])
-def pipette_arm_status(): 
+def echem_arm_status(): 
     msg = echem.status()
     pattern = r"X(?P<X>-?\d+(?:\.\d+)?)Y(?P<Y>-?\d+(?:\.\d+)?)Z(?P<Z>-?\d+(?:\.\d+)?)"
     match = re.search(pattern, msg["response"])
@@ -41,8 +195,14 @@ def pipette_arm_status():
         z = truncate_float(float(match.group("Z")),3)
     return {"message": "[INFO] "+msg["response"], "X":x, "Y":y, "Z":z}
 @echem_bp.route("/echem_arm_home", methods=["POST"])
-def echem_arm_home(): 
-    return echem.home()
+def echem_arm_home():
+    echem.X_axis = 0.0
+    echem.Y_axis = 0.0
+    echem.Z_axis = 0.0 
+    echem.home()
+    return jsonify({
+        "message": "[INFO] Homing echem."
+    })
 @echem_bp.route("/echem_arm_unlock", methods=["GET"])
 def echem_arm_unlock(): 
     echem.unlock()
@@ -60,10 +220,26 @@ def echem_arm_reset():
     return msg
 @echem_bp.route("/echem_arm_send_gcode", methods=["POST"])
 def echem_arm_send_gcode():
-    data=request.json
-    gcode = data["gcode"] 
-    msg = echem.send_gcode(gcode)['response']
-    return jsonify({"message": msg})
+    #data=request.json
+    #gcode = data["gcode"] 
+    #msg = echem.send_gcode(gcode)['response']
+    #return jsonify({"message": msg})
+    data = request.json or {}
+
+    print(data)
+
+    gcode = data.get("gcode")
+
+    if not gcode:
+
+        return jsonify({
+            "error": "Missing gcode"
+        }), 400
+
+    result = send_robot_gcode(gcode)
+
+    return jsonify(result)
+
 @echem_bp.route("/echem_arm_execute_routine", methods=["POST"])
 def echem_arm_execute_routine():# POST
     data=request.json
@@ -213,7 +389,7 @@ def jog_x():
     X_delta = X_axis+step
     if X_delta<0:
         X_delta = X_axis
-    gcode=f"G1 X{X_delta} Y{Y_axis} Z{Z_axis} F100"
+    gcode=f"G1 X{X_delta} Y{Y_axis} Z{Z_axis} F500"
     echem.send_gcode(gcode)
     echem.X_axis = X_delta
     return jsonify({"message": f"[INFO] Jogging x axis: {gcode}"})
@@ -234,7 +410,7 @@ def jog_y():
         Y_delta = Y_axis+step
         if Y_delta<0:
             Y_delta = Y_axis
-        gcode=f"G1 X{X_axis} Y{Y_delta} Z{Z_axis}"
+        gcode=f"G1 X{X_axis} Y{Y_delta} Z{Z_axis} F500"
         print(gcode, step)
         echem.send_gcode(gcode)
         echem.Y_axis = Y_delta
@@ -258,7 +434,7 @@ def jog_z():
         Z_delta = Z_axis+step
         if Z_delta<0:
             Z_delta = Z_axis
-        gcode=f"G1 X{X_axis} Y{Y_axis} Z{Z_delta}"
+        gcode=f"G1 X{X_axis} Y{Y_axis} Z{Z_delta} F500"
         print(gcode, step)
         echem.send_gcode(gcode)
         echem.Z_axis = Z_delta
