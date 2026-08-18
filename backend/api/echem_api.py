@@ -248,6 +248,33 @@ def echem_arm_execute_routine():# POST
     msg=""
     return msg
 # ------------------------------------------------------------------
+# Echem stirrer
+# ------------------------------------------------------------------
+@echem_bp.route("/echem_stirrer_on", methods=["POST"])
+def stirrers_on():
+    msg = {"message":"[INFO] Stirrer ON"}
+    echem.turn_stirrers_on()
+    return jsonify(msg)
+@echem_bp.route("/echem_stirrer_off", methods=["POST"])
+def stirrers_off():
+    msg = {"message": "[INFO] Stirrer OFF"}
+    echem.turn_stirrers_off()
+    return jsonify(msg)
+# ------------------------------------------------------------------
+# Echem electrodes washer
+# ------------------------------------------------------------------
+@echem_bp.route("/echem_washer_on", methods=["POST"])
+def washers_on():
+    msg = {"message":"[INFO] Washer ON"}
+    echem.turn_washers_on()
+    return jsonify(msg)
+@echem_bp.route("/echem_washer_off", methods=["POST"])
+def washers_off():
+    msg = {"message": "[INFO] Washer OFF"}
+    echem.turn_washers_off()
+    return jsonify(msg)
+# ------------------------
+# ------------------------------------------------------------------
 # Echem polisher, dropper and camera
 # ------------------------------------------------------------------
 # ------------------------------------------------------------------

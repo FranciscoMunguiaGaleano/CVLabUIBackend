@@ -515,6 +515,9 @@ def execute_routine_echem(routine):
 
 if __name__ == "__main__":
     #############################
+    # Testing mixer
+    ############################
+    #############################
     # Electrolite preparation workflow
     ############################
     print(F"[INFO] Script running in...{CWD_PATH}")

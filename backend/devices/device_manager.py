@@ -75,7 +75,9 @@ class DeviceManager:
             pipette_aux_url=config.PIPETTE_AUX_URL,
             pipette_aux_port=config.PIPETTE_AUX_PORT,
             plc_url=config.PLC_URL,
-            plc_port=config.PLC_PORT
+            plc_port=config.PLC_PORT,
+            stirrer_url=config.STIRRER_URL,
+            stirrer_port=config.STIRRER_PORT
         )
         self.camera = Camera(
             name="EchemCamera",
