@@ -14,6 +14,7 @@ from io import StringIO
 from PIL import Image
 import matplotlib.pyplot as plt
 from io import BytesIO
+import math
 
 
 CWD_PATH = os.getcwd()
@@ -94,7 +95,9 @@ echem = Echem(
         pipette_aux_url=config.PIPETTE_AUX_URL,
         pipette_aux_port=config.PIPETTE_AUX_PORT, 
         plc_url=config.PLC_URL,
-        plc_port=config.PLC_PORT)
+        plc_port=config.PLC_PORT,
+        stirrer_url=config.STIRRER_URL,
+        stirrer_port=config.STIRRER_PORT)  
 capper = Capper(
         name="Capper",
         capper_url=config.PLC_URL,
@@ -513,10 +516,138 @@ def execute_routine_echem(routine):
         send_robot_gcode_echem(gcode);echem.wait_until_idle()
         time.sleep(0.5)
 
+def semicircle_g1(start, end, direction=1, segments=20, feed=500):
+    """
+    Dibuja un semicírculo desde start hasta end usando solamente G1.
+
+    start/end: (x, y, z)
+    direction:
+        1  -> semicírculo por un lado
+        -1 -> semicírculo por el otro lado
+    segments: número de pequeños segmentos
+    """
+
+    x1, y1, z = start
+    x2, y2, _ = end
+
+    # Centro del círculo = punto medio entre start y end
+    cx = (x1 + x2) / 2
+    cy = (y1 + y2) / 2
+
+    # Radio
+    radius = math.sqrt((x2 - x1)**2 + (y2 - y1)**2) / 2
+
+    # Ángulo inicial
+    start_angle = math.atan2(y1 - cy, x1 - cx)
+
+    # Semicírculo = 180 grados
+    angle_step = direction * math.pi / segments
+
+    for i in range(1, segments + 1):
+        angle = start_angle + angle_step * i
+
+        x = cx + radius * math.cos(angle)
+        y = cy + radius * math.sin(angle)
+
+        gcode = f"G1 X{x:.3f} Y{y:.3f} Z{z:.3f} F{feed}"
+
+        #print(gcode)
+        send_robot_gcode_echem(gcode)
+        #echem.wait_until_idle()
+
+def polish_electrode(electrode_id=1, passes = 10):
+    '''
+    electrode_id 1 to 3 available
+    '''
+    print(F"[INFO] Polishing electrode {electrode_id} for {passes} passes.")
+    E_OFFS = {
+            1:[0,0,20],
+            2:[50,0,20],
+            3:[100,0,49.5]
+        }
+    x_offset=E_OFFS[electrode_id][0]
+    y_offset=E_OFFS[electrode_id][1]
+    z_offset=E_OFFS[electrode_id][2]
+    print("[INFO] Homing echem...")
+    home_echem();echem.wait_until_idle()
+    p1 = (5+x_offset, 1.0+y_offset, 0.0+z_offset)
+    p2 = (8+x_offset, 6.0+y_offset, 0.0+z_offset)
+    p3 = (5+x_offset, 6.0+y_offset, 0.0+z_offset)
+    p4 = (8+x_offset, 1.0+y_offset, 0.0+z_offset)
+    #below the electrode
+    print(F"[INFO] Moving polishing disc below electrode {electrode_id}")
+    gcode = f"G1 X{p2[0]} Y{p2[1]} Z{p2[2]-2} F500"
+    send_robot_gcode_echem(gcode);echem.wait_until_idle()
+    #touching the electrode
+    print(F"[INFO] Approaching polishing disc towards electrode {electrode_id}")
+    gcode = f"G1 X{p2[0]} Y{p2[1]} Z{p2[2]} F500"
+    send_robot_gcode_echem(gcode);echem.wait_until_idle()
+    for pass_n in range(0, passes):
+        print(f"[INFO] Polishing eelectrode pass number: {pass_n+1}")
+        # P1 -> P2
+        gcode = f"G1 X{p2[0]} Y{p2[1]} Z{p2[2]} F500"
+        send_robot_gcode_echem(gcode)
+        #echem.wait_until_idle()
+        # P2 -> P3 semicircle
+        semicircle_g1(p2, p3, direction=1, segments=10)
+        # P3 -> P4
+        gcode = f"G1 X{p4[0]} Y{p4[1]} Z{p4[2]} F500"
+        send_robot_gcode_echem(gcode)
+        #echem.wait_until_idle()
+        # P4 -> P1 semicircle
+        semicircle_g1(p4, p1, direction=-1, segments=10)
+        echem.wait_until_idle()
+    #time.sleep(2)
+    print(F"[INFO] Moving polishing disc below electrode {electrode_id}")
+    gcode = f"G1 X{p1[0]} Y{p1[1]} Z{p1[2]-2} F500"
+    send_robot_gcode_echem(gcode);echem.wait_until_idle()
+    print(F"[INFO] Polishing routine of electrode {electrode_id} finished")
+    home_echem();echem.wait_until_idle()
+def wash_electrodes(cycles=20,electrode_id=1):
+    TIMES ={
+            1:[1,1,1,1],
+            2:[1,1,1,1],
+            3:[1,1,1,1]
+        }
+    print(F"[INFO] Washing electrodes for {cycles} cycles")
+    echem.turn_washers_on()
+    time.sleep(TIMES[electrode_id][0])
+    echem.turn_washers_off()
+    time.sleep(TIMES[electrode_id][1])
+    for cycle in range(0,cycles):
+        echem.turn_washers_on()
+        time.sleep(TIMES[electrode_id][2])
+        echem.turn_washers_off()
+        time.sleep(TIMES[electrode_id][3])
+    print("[INFO] Washing electrodes cycle finished.")
+
+def stirr_samples(cycles=20,sample_slot_id=1):
+    TIMES ={
+        1:[1.5,1,1.2,1],
+        2:[1.1,1.1,0.8,1.4],
+        3:[1.1,1,1,1]
+    }
+    print(F"[INFO] Stirring samples for {cycles} cycles")
+    echem.turn_stirrers_on()
+    time.sleep(TIMES[sample_slot_id][0])
+    echem.turn_stirrers_off()
+    time.sleep(TIMES[sample_slot_id][1])
+    for cycle in range(0,cycles):
+        echem.turn_stirrers_on()
+        time.sleep(TIMES[sample_slot_id][2])
+        echem.turn_stirrers_off()
+        time.sleep(TIMES[sample_slot_id][3])
+    print("[INFO] Stirring samples cycle finished.")
+
+
 if __name__ == "__main__":
     #############################
-    # Testing mixer
+    # Testing infinity 8 routine
     ############################
+    #wash_electrodes(cycles=10)
+    stirr_samples(cycles=10,sample_slot_id=1)
+    #polish_electrode(electrode_id=3,passes=3)
+    sys.exit()
     #############################
     # Electrolite preparation workflow
     ############################
