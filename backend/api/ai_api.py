@@ -1,20 +1,20 @@
 from flask import Blueprint, jsonify, request
 import os
 import json
-
-# Optional OpenAI import
 try:
-    import openai
+    from openai import OpenAI
     OPENAI_AVAILABLE = True
+    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY")) 
 except ImportError:
+    print("[ERROR] Not openai library found")
     OPENAI_AVAILABLE = False
 
 ai_bp = Blueprint("ai_api", __name__)
 
 BASE_PATH = os.getcwd()
-TEMPLATE_PATH = os.path.join(BASE_PATH, "data/aisuggestions/context_template_prompt.json")
+TEMPLATE_PATH = os.path.join(BASE_PATH, "data/aisuggestions/context_template_prompt_simplified.json")
 DUMMY_RESPONSE_PATH = os.path.join(BASE_PATH, "data/aisuggestions/dummy_rEasype.json")
-
+MODEL="gpt-3.5-turbo" #
 
 @ai_bp.route("/query", methods=["POST"])
 def ai_scientist():
@@ -23,12 +23,8 @@ def ai_scientist():
 
     if not query:
         return jsonify({"ok": False, "response": "No query provided"}), 400
-
-    openai_api_key = os.environ.get("OPENAI_API_KEY")
-
-    if OPENAI_AVAILABLE and openai_api_key:
+    if OPENAI_AVAILABLE:
         try:
-            openai.api_key = openai_api_key
 
             # Load context template
             if os.path.exists(TEMPLATE_PATH):
@@ -42,8 +38,9 @@ def ai_scientist():
                 system_prompt = "You are a CVLab AI Scientist."
 
             # OpenAI call
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+            # Modern API call format
+            response = client.chat.completions.create(
+                model=MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": query}
@@ -51,10 +48,15 @@ def ai_scientist():
                 temperature=0.3
             )
 
-            response_text = response['choices'][0]['message']['content']
+            # Modern dot notation instead of dictionary brackets
+            response_text = response.choices[0].message.content
 
-            # TODO: parse experiment_json from response_text if your LLM outputs JSON
-            experiment_json = _load_dummy_json()
+            # Try to parse the JSON output from the model
+            try:
+                experiment_json = json.loads(response_text)
+            except json.JSONDecodeError:
+                print(f"[Error]: Model did not return valid JSON. Raw output: {response_text}")
+                experiment_json = _load_dummy_json()
 
             return jsonify({
                 "ok": True,

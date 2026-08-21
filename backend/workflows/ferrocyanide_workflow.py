@@ -146,7 +146,7 @@ ph_toledo_meter = ToledoPhMeter(
 # ---------------------------------------------------
 
 def run_cyclic_voltammetry(
-    potentiostat_id=2,
+    potentiostat_id=1,
     i_range=5,
     start_potential=0,
     potential_vertex=1,
@@ -370,7 +370,7 @@ def execute_routine_arm(routine):
     gcodes = load_arm_routine(routine)
     for gcode in gcodes:
         send_robot_gcode_arm(gcode);arm.wait_until_idle()
-        time.sleep(0.5)
+        #time.sleep(0.5)
 def home_arm():
     arm.home();arm.wait_until_idle()
     arm.home();arm.wait_until_idle()
@@ -514,7 +514,7 @@ def execute_routine_echem(routine):
     gcodes = load_echem_routine(routine)
     for gcode in gcodes:
         send_robot_gcode_echem(gcode);echem.wait_until_idle()
-        time.sleep(0.5)
+        #time.sleep(0.5)
 
 def semicircle_g1(start, end, direction=1, segments=20, feed=500):
     """
@@ -639,29 +639,54 @@ def stirr_samples(cycles=20,sample_slot_id=1):
         time.sleep(TIMES[sample_slot_id][3])
     print("[INFO] Stirring samples cycle finished.")
 
+def fill_washing_vials(carousel_slot=1):
+    print(F"[INFO] Filling vials of carousel slot {carousel_slot}")
 
-if __name__ == "__main__":
+def photograph_electrode(electrode_id=1):
+    return
+
+def prime_lines(source_port=1):
+    return
+
+def degassing_sample(degassing_time=5):
+    print(F"[INFO] Degassing sample for {degassing_time} seconds")
+    echem.purger_on();time.sleep(degassing_time)
+    echem.purger_off();time.sleep(0.1)
+    print(F"[INFO] Degassing completed")
+    return
+
+def prepare_sample(
+        carousel_slot=0, 
+        solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analite"]}, 
+        liquids={1:["Water",10, "Solvent"]},
+        mix_ultrasound=False, 
+        mixing_time=60):
     #############################
-    # Testing infinity 8 routine
+    # Electrolite preparation workflow introduction
     ############################
-    #wash_electrodes(cycles=10)
-    stirr_samples(cycles=10,sample_slot_id=1)
-    #polish_electrode(electrode_id=3,passes=3)
-    sys.exit()
-    #############################
-    # Electrolite preparation workflow
-    ############################
-    print(F"[INFO] Script running in...{CWD_PATH}")
-    print("[INFO] Starting ferrocyanide workflow...")
+    print(F"[INFO] Preparing an electrolite from carousel slot {carousel_slot} with: ")
+    for key in solids:
+        print(F"[INFO] {solids[key][1]} mg of {solids[key][0]}")
+    print("[INFO] and")
+    for key in liquids:
+        print(F"[INFO] {liquids[key][1]} mL of {liquids[key][0]}")
     print("[INFO] Homing arm")
+    if mix_ultrasound:
+        print(F"[INFO] Mixing sample in ultrasound bath for {mixing_time} seconds")
     home_arm()
     print("[INFO] Homing echem")
     home_echem()
     print("[INFO] Homing bottom carousel")
     bottom_carousel.home();time.sleep(10)
-    print("[INFO] Moving bottom carousel to position 0")
-    bottom_carousel.move_absolute(str(0));time.sleep(10)
-    #####TESTED SAMPLING PREPARATION!!!
+    print(F"[INFO] Moving bottom carousel to position {carousel_slot}")
+    bottom_carousel.move_absolute(str(carousel_slot));time.sleep(10)
+    #####################################
+    # Filling washing vials
+    #####################################
+    fill_washing_vials(carousel_slot=carousel_slot)
+    ##################################
+    # Viel in quantos
+    #####################################
     print("[INFO] Move robot to idle position.")
     execute_routine_arm("idle.json")
     print("[INFO] Opening quantos door")
@@ -669,10 +694,10 @@ if __name__ == "__main__":
     solids_dispenser.open_front_door();time.sleep(3)
     print("[INFO] Moving vial to quantos.")
     execute_routine_arm("pick_vial_from_bottom_carousel.json")
-    #execute_routine_arm("idle.json")
     execute_routine_arm("place_vial_in_quantos.json")
-    #home_arm()
-    #execute_routine_arm("idle.json")
+    #####################################
+    # Solids dispensing TODO put in a for loop
+    #####################################
     print(F"[INFO] Inserting cartridge number {experiment['salt']['cartridge_pos']} with {experiment['salt']['sample_id']} in quantos.")
     execute_routine_arm(F"pick_cartridge_from_tower_{experiment['salt']['cartridge_pos']}.json")
     execute_routine_arm("idle.json")
@@ -680,14 +705,17 @@ if __name__ == "__main__":
     solids_dispenser.close_side_doors()
     solids_dispenser.close_front_door();time.sleep(5)
     print("[INFO] Dispensing...");time.sleep(5)
+    #set antiestatic on
+    #tare
     #dispensing TODO
+    #get weight
+    #set antiestatic off
     print("[INFO] Opening quantos doors.")
     solids_dispenser.open_side_doors()
     solids_dispenser.open_front_door();time.sleep(3)
-    
-    ###**
     print(F"[INFO] Returning cartridge number {experiment['salt']['cartridge_pos']} with {experiment['salt']['sample_id']} to tower.")
     execute_routine_arm(F"place_cartridge_in_tower_{experiment['salt']['cartridge_pos']}.json")
+    ###Loop 2
     print(F"[INFO] Inserting cartridge number {experiment['analite']['cartridge_pos']} with {experiment['analite']['sample_id']} in quantos.")
     execute_routine_arm(F"pick_cartridge_from_tower_{experiment['analite']['cartridge_pos']}.json")
     execute_routine_arm("idle.json")
@@ -705,116 +733,217 @@ if __name__ == "__main__":
     solids_dispenser.open_front_door();time.sleep(3)
     print(F"[INFO] Returning cartridge number {experiment['analite']['cartridge_pos']} with {experiment['salt']['sample_id']} to tower.")
     execute_routine_arm(F"place_cartridge_in_tower_{experiment['analite']['cartridge_pos']}.json")
+    ###################################
+    #LIQUID DISPENSING TODO
+    ###################################
     print("[INFO] Moving vial to capper.")
     execute_routine_arm("pick_vial_from_quantos.json")
-    #ROBOT PLACES VIAL IN CAPPER
     execute_routine_arm("place_vial_in_capper.json")
-    print("[INFO] ispensing liquid.")
+    print("[INFO] Dispensing liquid.")
     capper.hold_vial()
-    ####
-    #LIQUID DISPENSING TODO
     print("[INFO] Testing pump..")
     print(liquids_dispenser.status());time.sleep(0.3)
     print(liquids_dispenser.get_valve_pos());time.sleep(0.3)
     print(liquids_dispenser.dispense(liquid));time.sleep(0.3)
     print(liquids_dispenser.move_home());time.sleep(0.3)
     ####
+    prime_lines(source_port=1)
     liquids_dispenser.piston_to_dispense_position();time.sleep(5)
-    #prime lines 
     #dispense
     liquids_dispenser.piston_to_home_position()
     ####
     capper.release_vial()
-    print("[INFO] Moving vial to mixer.")
     execute_routine_arm("pick_vial_from_capper.json")
-    execute_routine_arm("place_vial_in_mixer_1.json")
-    execute_routine_arm("idle.json")
-    print("[INFO] Mixing.")
-    mixer.lower_lift();time.sleep(10)
-    mixer.turn_ultrasound_bath_on();time.sleep(5)
-    mixer.turn_ultrasound_bath_off()
-    mixer.raise_lift()
+    ######################################
+    # Mixing
+    ######################################
+    if mix_ultrasound:
+        print("[INFO] Moving vial to mixer.")
+        execute_routine_arm("place_vial_in_mixer_2.json")
+        execute_routine_arm("idle.json")
+        print("[INFO] Mixing.")
+        mixer.lower_lift();time.sleep(10)
+        mixer.turn_ultrasound_bath_on();time.sleep(mixing_time)
+        mixer.turn_ultrasound_bath_off()
+        mixer.raise_lift()
+        execute_routine_arm("pick_vial_from_mixer_1.json")
+    #######################################
+    # Sample to carousel
+    #######################################
     print("[INFO] Moving vial to bottom carousel.")
-    execute_routine_arm("pick_vial_from_mixer_1.json")
     execute_routine_arm("idle.json")
     execute_routine_arm("place_vial_in_bottom_carousel.json")
     execute_routine_arm("idle.json")
     home_arm()
-    #######################
-    # Sample analysis
-    ###################
-    
-    #ROBOT MOVES RACK TO ECHEM's slot 1 TESTED
+
+def analise_sample(echem_slot=1, experiment_path="", mixing = True):
+    ########################################
+    # Moving rack from carousel to echem
+    ########################################
     print("[INFO] Moving rack to echem.")
     execute_routine_arm("pick_rack_from_bottom_carousel.json")
-    execute_routine_arm("place_rack_in_1.json")
-    # PH
+    execute_routine_arm(F"place_rack_in_{echem_slot}.json")
+    ########################################
+    # mixing
+    ########################################
+    if mixing:
+        stirr_samples(cycles=10)
+    #########################################
+    # Degassing samples before Ph measurement
+    ########################################
+    # home_echem()
+    # execute_routine_echem("idle.json")
+    ########################################
+    # Measuring Ph
+    ########################################
     print("[INFO] Setting ph measurement.") 
     execute_routine_echem("ph_measurement.json")
     print("[INFO] Picking ph Probe") 
     execute_routine_arm("pick_ph_probe.json")
-    print("[INFO] Measuring ph in rack 1") 
-    execute_routine_arm("measure_ph_in_rack_1.json")
-    #Ph 
+    print(F"[INFO] Measuring ph in rack {echem_slot}") 
+    execute_routine_arm(F"measure_ph_in_rack_{echem_slot}.json")
+    stirr_samples(cycles=20,sample_slot_id=echem_slot)
     ph_toledo_meter.press_read_button();time.sleep(3)
     msg = ph_toledo_meter.read_ph();time.sleep(2)
     ph_before = msg['pH']
     print(F"[INFO] Measurement done: {ph_before}") 
-    #
-    print("[INFO] Measurement done.") 
-    execute_routine_arm("measure_ph_in_rack_1_out.json")
+    execute_routine_arm(F"measure_ph_in_rack_{echem_slot}_out.json")
+    ########################################
+    # Washing Ph probe
+    ########################################
     print("[INFO] Washing ph probe.") 
-    execute_routine_arm("wash_ph_probe_be_in_rack_1.json")
+    execute_routine_arm(f"wash_ph_probe_be_in_rack_{echem_slot}.json")
     print("[INFO] Returning ph probe") 
     execute_routine_arm("place_ph_probe.json")
     execute_routine_echem("idle.json")
     home_echem()
-    ###
+    ########################################
+    # Washing  Electrodes
+    ########################################
     print("[INFO] Washing electrodes.") 
     execute_routine_echem("wash_electrodes.json")
+    wash_electrodes(cycles=20,electrode_id=echem_slot)#TODO aqui se hay que dejarlo arriba
+    execute_routine_echem("wash_electrodes_out.json")
     execute_routine_echem("ph_measurement.json")
     print("[INFO] Drying electrodes") 
     echem.dryer_on();time.sleep(2)
-    echem.dryer_off();time.sleep(1)
+    echem.dryer_off();time.sleep(0.1)
     execute_routine_echem("idle.json")
-    #PHOTO BEFORE EXPERIMENT OF ELECTRODES TODO
+    ###########################################
+    #PHOTO BEFORE EXPERIMENT OF ELECTRODES TODO rutinas guardarlas y guardar foto 
+    ###########################################
     print("[INFO] Sinking electrodes in cell.") 
     execute_routine_echem("cv_start_position.json")
-    print("[INFO]  Executing CV test...")
-    df, data = run_cyclic_voltammetry()
-    print("[INFO] CV test done.") 
+    degassing_sample(degassing_time=5)
+    ###########################################
+    # CV Test TODO add Try catch blocks and repeat if there is a problem
+    ###########################################
+    try:
+        print("[INFO]  Executing CV test...")
+        df, data = run_cyclic_voltammetry(
+            potentiostat_id=echem_slot,
+            i_range=5,
+            start_potential=0,
+            potential_vertex=1,
+            scan_rate=100,
+            cycles=1,
+            increment=0.01,
+            show_plot=True,)
+        print("[INFO] CV test done.") 
+    except:
+        print("[Error] not possible to connect with potentiostats")
     execute_routine_echem("cv_end_position.json")
     execute_routine_echem("idle.json")
     home_echem()
-    ##PH
+    #############################################
+    # measruing Ph after the test
+    #############################################
     print("[INFO] Setting ph measurement.") 
     execute_routine_echem("ph_measurement.json")
     print("[INFO] Picking ph Probe") 
     execute_routine_arm("pick_ph_probe.json")
-    print("[INFO] Measuring ph in rack 1") 
-    execute_routine_arm("measure_ph_in_rack_1.json")
-    #Ph 
+    print(F"[INFO] Measuring ph in rack {echem_slot}") 
+    execute_routine_arm(F"measure_ph_in_rack_{echem_slot}.json")
+    stirr_samples(cycles=20,sample_slot_id=1)
     ph_toledo_meter.press_read_button();time.sleep(3)
     msg = ph_toledo_meter.read_ph();time.sleep(2)
     ph_after = msg['pH']
     print(F"[INFO] Measurement done: {ph_after}") 
-    #
-    execute_routine_arm("measure_ph_in_rack_1_out.json")
+    execute_routine_arm(F"measure_ph_in_rack_{echem_slot}_out.json")
     print("[INFO] Washing ph probe.") 
-    execute_routine_arm("wash_ph_probe_ae_in_rack_1.json")
+    execute_routine_arm(F"wash_ph_probe_ae_in_rack_{echem_slot}.json")
     print("[INFO] Returning ph probe") 
     execute_routine_arm("place_ph_probe.json")
     execute_routine_echem("idle.json")
-    #PHOTO OF ELECTRODES AFTER EXPERIMENT
+    #############################################
+    # Photo of electrode after the test TODO
+    #############################################
     home_echem()
-    ##
+    #############################################
     #AI GENERATES REPORT TODO
-    #PHOTO of ELECTRODE TODO
+    #############################################
+    #############################################
+    # Homing system
+    #############################################
     print("[INFO] Returning rack to carousel.")
     execute_routine_arm("idle.json")
     execute_routine_arm("pick_rack_from_1.json")
     execute_routine_arm("place_rack_in_bottom_carousel.json")
+    ##############################################
     #POLISHING? YES POLISH no? continue TODO
+    ##############################################
+    while True:
+        answer=input(f'[WARNING] Polihs electrode {echem_slot} (y/n)')
+        if answer == 'y' or answer == 'Y':
+            print(F"[INFO] Polishing electrode {echem_slot} ")
+            polish_electrode(electrode_id=3,passes=3)
+            #washing and drying routine again
+            break
+        elif answer == 'n' or answer == 'N':
+            print(F"[WARNING] Electrode {echem_slot} not polished.")
+            break
+    print("[INFO] Workflow finished, homing arm.")
+    home_arm()
+
+if __name__ == "__main__":
+    print(F"[INFO] Script running in...{CWD_PATH}")
+    print("[INFO] Starting ferrocyanide workflow...")
+    #prepare_sample()
+    #home_arm()
+    #analise_sample()
+    echem_slot=1
+    print("[INFO] Washing ph probe.") 
+    execute_routine_arm(F"wash_ph_probe_ae_in_rack_{echem_slot}.json")
+    print("[INFO] Returning ph probe") 
+    execute_routine_arm("place_ph_probe.json")
+    execute_routine_echem("idle.json")
+    #############################################
+    # Photo of electrode after the test TODO
+    #############################################
+    home_echem()
+    #############################################
+    #AI GENERATES REPORT TODO
+    #############################################
+    #############################################
+    # Homing system
+    #############################################
+    print("[INFO] Returning rack to carousel.")
+    execute_routine_arm("idle.json")
+    execute_routine_arm("pick_rack_from_1.json")
+    execute_routine_arm("place_rack_in_bottom_carousel.json")
+    ##############################################
+    #POLISHING? YES POLISH no? continue TODO
+    ##############################################
+    while True:
+        answer=input(f'[WARNING] Polihs electrode {echem_slot} (y/n)')
+        if answer == 'y' or answer == 'Y':
+            print(F"[INFO] Polishing electrode {echem_slot} ")
+            polish_electrode(electrode_id=3,passes=3)
+            #washing and drying routine again
+            break
+        elif answer == 'n' or answer == 'N':
+            print(F"[WARNING] Electrode {echem_slot} not polished.")
+            break
     print("[INFO] Workflow finished, homing arm.")
     home_arm()
     
