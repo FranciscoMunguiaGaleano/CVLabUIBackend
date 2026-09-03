@@ -15,7 +15,6 @@ except ImportError:
     OPENAI_AVAILABLE = False
     client = None
 ai_bp = Blueprint("ai_api", __name__)
-
 # ============================================================
 # PATHS
 # ============================================================
@@ -604,11 +603,20 @@ def run_experiment():
         experiment_path = os.path.join(EXPERIMENTS_PATH,safe_filename)
         with open(experiment_path,"w",encoding="utf-8") as f:
             json.dump(experiment,f,indent=2,ensure_ascii=False)
-        workflow_script = os.path.join(BASE_PATH,"workflow.py")
+        workflow_script = os.path.join(BASE_PATH,"workflows/workflow_executer.py")
         if not os.path.exists(workflow_script):
-            print("[rEasype] workflow.py not found.")
+            print(f"[rEasype]  {workflow_script} not found.")
             return jsonify({"ok": True,"status": "completed","simulation": True,"message": ("Workflow completed in simulation mode because workflow.py was not found."),"filename": safe_filename})
-        result = subprocess.run([sys.executable,workflow_script,experiment_path],capture_output=True,text=True,check=False)
+        #result = subprocess.run([sys.executable,workflow_script,safe_filename],capture_output=True,text=True,check=False)
+        result = subprocess.run(
+            [sys.executable, workflow_script, safe_filename],
+            #capture_output=True,
+            text=True,
+            check=False)
+        #print("[rEasype] Results: \n", result)
+        print("[rEasype] ##################################")
+        print("[rEasype] Workflow executed.")
+        print("[rEasype] ##################################")
         if result.returncode != 0:
             return jsonify({"ok": False,"status": "failed","error": ("Workflow returned an error."),"return_code":result.returncode,"stdout":result.stdout,"stderr":result.stderr}), 500
 

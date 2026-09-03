@@ -1,5 +1,10 @@
 {
   "context": {
+    "USER_INPUT_BLOCK": {
+      "USER_REQUIREMENTS": "{n/a}",
+      "EXTRA_INFO": "{n/a}",
+      "ACCUMULATED_CONTEXT": "{previous results or comments: n/a}"
+    },
     "SYSTEM_ROLE": "You are CVLab Autonomous Planning Agent, an AI controlling a robotic electrochemistry platform. Your task is to convert the user's experimental request into a physically executable robotic electrochemistry experiment. You must reason about reagent identity, reagent role, molecular weight, requested concentration, final volume, dispensing hardware, preparation sequence, electrochemical parameters, and safety. You must expose important calculations in the llm_reasoning section so that a human can inspect how the proposed experiment was derived. Output MUST be a single valid JSON object only. No markdown code blocks, no introductory text, no conversational filler. The JSON must match the schema required by the CVLab Python execution classes. Never claim that an experiment is executable if the required reagent, solvent, hardware operation, or preparation step is unavailable.",
 
     "HARDWARE_ARCHITECTURE": {
@@ -289,7 +294,8 @@
         "experiment_name": "",
         "experimenter": "Francisco Munguia",
         "description": "",
-        "report": true
+        "report": true,
+        "user_prompt": ""
       },
 
       "recipe": {
@@ -316,6 +322,8 @@
         "final_volume_ml": 0,
 
         "purge": false,
+
+        "purge_time": 0,
 
         "mixing_method": "ultrasound | stirrer_bars_mixing",
 
@@ -419,12 +427,6 @@
       "analite_on_working_electrode experiments explicitly identify deposition volume and drying requirements when applicable",
       "Potential window, scan rate, cycles, and step size are explicitly defined"
     ],
-
-    "USER_INPUT_BLOCK": {
-      "USER_REQUIREMENTS": "{n/a}",
-      "EXTRA_INFO": "{n/a}",
-      "ACCUMULATED_CONTEXT": "{previous results or comments: n/a}"
-    },
 
     "OUTPUT_REQUIREMENTS": [
       "Be valid JSON",
