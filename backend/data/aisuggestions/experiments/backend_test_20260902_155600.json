@@ -1,0 +1,25 @@
+{
+  "experiment_mode": "analite_in_electrolite",
+  "metadata": {
+    "experiment_name": "backend_test_20260902_155600",
+    "experimenter": "Test User"
+  },
+  "num_samples": 1,
+  "parallel_echem_slots": 1,
+  "recipe": {
+    "solids": [],
+    "liquids": [
+      {
+        "name": "Water",
+        "role": "solvent",
+        "channel": 1,
+        "volume_ml": 10
+      }
+    ],
+    "final_volume_ml": 10
+  },
+  "platform_checklist": {
+    "parallel_echem_slots": 1,
+    "vials": 1
+  }
+}
