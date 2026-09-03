@@ -657,6 +657,7 @@ def get_report():
 # ============================================================
 @ai_bp.route("/model", methods=["POST"])
 def set_model():
+    global CURRENT_MODEL_KEY
     try:
         data = request.get_json(silent=True) or {}
         model_key = data.get("model")
