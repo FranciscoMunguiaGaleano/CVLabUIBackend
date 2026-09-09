@@ -72,7 +72,7 @@ experiment= {
              'ph_before':0,
              'ph_after':0,
              'cv_results':[],
-             'analite':
+             'analyte':
                 {
                  "sample_id": "ferrocyanide",
                  "mass_mg": 5.0,
@@ -145,12 +145,13 @@ top_carousel = TopCarousel(
     carousel_port=config.TOP_CAROUSEL_URL,
     conf_file=TOP_CAROUSEL_CONF
 )
+
 bottom_carousel = BottomCarousel(
     name="Bottom Carousel",
     carousel_url=config.BOTTOM_CAROUSEL_URL,
     carousel_port=config.BOTTOM_CAROUSEL_PORT,
     aux_carousel_pump_url=config.PUMPS_URL,
-    aux_carousel_pump_port=config.PUMPS_URL,
+    aux_carousel_pump_port=config.PUMPS_PORT,
     aux_carousel_purger_url=config.PLC_URL,
     aux_carousel_purger_port=config.PLC_PORT,
     conf_file=BOTTOM_CAROUSEL_CONF
@@ -163,6 +164,7 @@ ph_toledo_meter = ToledoPhMeter(
 # ---------------------------------------------------
 # Helpers General
 # ---------------------------------------------------
+LIQUIDS_CHANNELS={1:"I2",2:"I3",3:"I4",4:"I5",5:"I6"}
 
 def run_cyclic_voltammetry(
     potentiostat_id=1,
@@ -676,10 +678,11 @@ def degassing_sample(degassing_time=5):
 
 def prepare_sample(
         carousel_slot=0, 
-        solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analite"]}, 
+        solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analyte"]}, 
         liquids={1:["Water",10, "Solvent"]},
         mix_ultrasound=False, 
-        mixing_time=60):
+        mixing_time=60,
+        experiment={}):
     #############################
     # Electrolite preparation workflow introduction
     ############################
@@ -699,12 +702,17 @@ def prepare_sample(
     bottom_carousel.home();time.sleep(10)
     print(F"[INFO] Moving bottom carousel to position {carousel_slot}")
     bottom_carousel.move_absolute(str(carousel_slot));time.sleep(10)
+    bottom_carousel.move_absolute(str(9));time.sleep(20)
+    print("[INFO] Filling washing vials")
+    bottom_carousel.turn_pumps_on();time.sleep(10)
+    bottom_carousel.turn_pumps_off()
+    bottom_carousel.move_absolute(str(carousel_slot));time.sleep(0)
     #####################################
     # Filling washing vials
     #####################################
     fill_washing_vials(carousel_slot=carousel_slot)
     ##################################
-    # Viel in quantos
+    # Vial in quantos
     #####################################
     print("[INFO] Move robot to idle position.")
     execute_routine_arm("idle.json")
@@ -735,8 +743,8 @@ def prepare_sample(
     print(F"[INFO] Returning cartridge number {experiment['salt']['cartridge_pos']} with {experiment['salt']['sample_id']} to tower.")
     execute_routine_arm(F"place_cartridge_in_tower_{experiment['salt']['cartridge_pos']}.json")
     ###Loop 2
-    print(F"[INFO] Inserting cartridge number {experiment['analite']['cartridge_pos']} with {experiment['analite']['sample_id']} in quantos.")
-    execute_routine_arm(F"pick_cartridge_from_tower_{experiment['analite']['cartridge_pos']}.json")
+    print(F"[INFO] Inserting cartridge number {experiment['analyte']['cartridge_pos']} with {experiment['analyte']['sample_id']} in quantos.")
+    execute_routine_arm(F"pick_cartridge_from_tower_{experiment['analyte']['cartridge_pos']}.json")
     execute_routine_arm("idle.json")
     print("[INFO] Closing quantos doors.")
     solids_dispenser.close_side_doors()
@@ -750,8 +758,8 @@ def prepare_sample(
     print("[INFO] Opening quantos doors.")
     solids_dispenser.open_side_doors()
     solids_dispenser.open_front_door();time.sleep(3)
-    print(F"[INFO] Returning cartridge number {experiment['analite']['cartridge_pos']} with {experiment['salt']['sample_id']} to tower.")
-    execute_routine_arm(F"place_cartridge_in_tower_{experiment['analite']['cartridge_pos']}.json")
+    print(F"[INFO] Returning cartridge number {experiment['analyte']['cartridge_pos']} with {experiment['salt']['sample_id']} to tower.")
+    execute_routine_arm(F"place_cartridge_in_tower_{experiment['analyte']['cartridge_pos']}.json")
     ###################################
     #LIQUID DISPENSING TODO
     ###################################
@@ -769,7 +777,15 @@ def prepare_sample(
     prime_lines(source_port=1)
     liquids_dispenser.piston_to_dispense_position();time.sleep(5)
     #dispense
-    liquids_dispenser.piston_to_home_position()
+    #volume = float(data["volume"])
+    #source_port = data.get("source_port", "I1")
+    #destination_port = data.get("destination_port", "O1")
+    dispensing_data={
+            "volume":5000, #ul
+            "source_port": LIQUIDS_CHANNELS[1],
+            "destination_port": "O1"
+        }
+    liquids_dispenser.dispense(dispensing_data)
     ####
     capper.release_vial()
     execute_routine_arm("pick_vial_from_capper.json")
@@ -1809,7 +1825,49 @@ def json_to_pdf(report_data, output_pdf_path, input_data=None, image_paths=None)
 if __name__ == "__main__":
     # 1. Initialize workflow paths and load user script
     experiment, paths = load_experiment()
+    bottom_carousel.turn_pumps_on();time.sleep(10)
+    bottom_carousel.turn_pumps_off()
+    sys.exit()
+    # 1.1 Execute 
 
+    #    "solids": [
+    #  {
+    #    "cartridge_position": 1,
+    #    "mass_mg": 149.1,
+    #    "molecular_weight_g_mol": 74.5513,
+    #    "name": "Potassium chloride",
+    #    "requested_concentration_mol_L": 0.1,
+    #    "role": "salt"
+    #  },
+    #  {
+    #    "cartridge_position": 2,
+    #    "mass_mg": 5.26,
+    #    "molecular_weight_g_mol": 176.12,
+    #    "name": "Vitamin C (ascorbic acid)",
+    #    "requested_concentration_mol_L": 0.005,
+    #    "role": "analyte"
+    #  }
+    #solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analite"]}, 
+    #liquids={1:["Water",10, "Solvent"]},
+    #liquids_dispenser.status()
+    #sys.exit()
+    solids= {}
+    for solid in experiment['recipe']['solids']:
+        solids[solid['cartridge_position']]= [solid['name'],solid['mass_mg'],solid["role"]]
+    print(solids)
+    liquids = {}
+    for liquid in experiment['recipe']['liquids']:
+        liquids[liquid['channel']]= [liquid['name'],liquid['volume_ml'],"solvent"]
+    print(liquids) 
+    #sys.exit()
+    prepare_sample(solids=solids,
+                   liquids=liquids,
+                   experiment={
+        solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1},
+        solids[2][2]: {'sample_id':solids[2],'cartridge_pos':2}
+    })
+    input("Continue?")
+    analise_sample()
     # 2. Mock results execution (Simulated Data for pipeline verification)
     print("[INFO] Simulating experiment execution...")
 
