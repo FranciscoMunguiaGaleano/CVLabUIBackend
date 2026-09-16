@@ -1,0 +1,165 @@
+{
+  "cv_parameters": {
+    "counter_electrode_type": "Platinum",
+    "cycles": 3,
+    "i_range": "MICROAMPS200",
+    "increment_v": 0.01,
+    "polishing": true,
+    "polishing_cycles": 3,
+    "potential_vertex_v": 0.65,
+    "potentiostat_id": 1,
+    "reference_electrode": "Ag/AgCl",
+    "scan_rate_mv_s": 50,
+    "start_potential_v": 0,
+    "working_electrode_type": "Gold"
+  },
+  "experiment_mode": "analite_in_electrolite",
+  "llm_reasoning": {
+    "analyte_preparation_explanation": "Vitamin C is assumed to be L-ascorbic acid solid, molecular weight 176.12 g/mol. It is added directly to the freshly prepared 0.10 M KCl electrolyte as the separately identified analyte. The 1.233 mg planned mass in 7.000 mL gives an actual nominal concentration of 1.00013 mM. The solution is prepared freshly and protected from unnecessary light and air exposure because ascorbic acid is susceptible to oxidation.",
+    "assumptions": [
+      "Quantos cartridge position 1 is loaded with potassium chloride and cartridge position 2 is loaded with L-ascorbic acid before execution.",
+      "Water is available as a pump-compatible liquid on syringe-pump channel 1.",
+      "The L-ascorbic acid solid is sufficiently pure for the stated mass-based concentration calculation.",
+      "The platform can accurately dispense the planned low analyte mass of 1.233 mg using Quantos.",
+      "Nitrogen is connected to the electrochemical substation purge capability.",
+      "The reported potentials are interpreted versus the available Ag/AgCl reference electrode.",
+      "The user requested an initial characterization experiment rather than a buffered physiological-pH experiment; KCl was selected instead of a multi-component buffer because KCl and water can be directly prepared using the explicitly supported solid and liquid dispensing workflow."
+    ],
+    "concentration_calculations": [
+      {
+        "actual_concentration_mol_L": 0.099981,
+        "calculation_explanation": "For 0.100 M KCl in 0.007000 L: moles = 0.100 mol/L x 0.007000 L = 0.000700 mol. Using MW 74.5513 g/mol, theoretical mass = 0.000700 x 74.5513 x 1000 = 52.18591 mg. The planned Quantos mass is 52.176 mg; actual concentration = (0.052176 g / 74.5513 g/mol) / 0.007000 L = 0.099981 M.",
+        "chemical": "Potassium chloride",
+        "final_volume_L": 0.007,
+        "final_volume_ml": 7,
+        "molecular_weight_g_mol": 74.5513,
+        "planned_mass_mg": 52.176,
+        "requested_concentration_mol_L": 0.1,
+        "required_moles": 0.0007,
+        "role": "salt",
+        "theoretical_mass_g": 0.05218591,
+        "theoretical_mass_mg": 52.18591
+      },
+      {
+        "actual_concentration_mol_L": 0.00100013,
+        "calculation_explanation": "For 0.00100 M L-ascorbic acid in 0.007000 L: moles = 0.00100 mol/L x 0.007000 L = 0.00000700 mol. Using MW 176.12 g/mol, theoretical mass = 0.00000700 x 176.12 x 1000 = 1.23284 mg. The planned Quantos mass is 1.233 mg; actual concentration = (0.001233 g / 176.12 g/mol) / 0.007000 L = 0.00100013 M.",
+        "chemical": "L-Ascorbic acid (Vitamin C)",
+        "final_volume_L": 0.007,
+        "final_volume_ml": 7,
+        "molecular_weight_g_mol": 176.12,
+        "planned_mass_mg": 1.233,
+        "requested_concentration_mol_L": 0.001,
+        "required_moles": 7e-06,
+        "role": "analyte",
+        "theoretical_mass_g": 0.00123284,
+        "theoretical_mass_mg": 1.23284
+      }
+    ],
+    "constraint_validation_summary": "The plan uses 2 solid cartridges, below the maximum of 8, and 1 liquid channel, below the maximum of 4. Each solid mass is below the 200 mg per-cartridge Quantos limit. The 7.000 mL water volume is exactly 7000 uL, equal to 1000 increments of 7 uL, so no volume rounding is required. The final volume is 7.000 mL, below the 10 mL vial limit. One electrochemical slot is used, below the maximum of 3. Potassium chloride and L-ascorbic acid are represented as solids and water is the only pump-dispensed liquid. The required electrode configuration is Gold working electrode, Platinum counter electrode, and Ag/AgCl reference electrode.",
+    "drying_explanation": "No analyte film is deposited, so no analyte-film drying operation is required. The gold working electrode is washed and dried after polishing before immersion in the prepared solution.",
+    "electrode_deposition_explanation": "No electrode deposition is performed because the analyte is intentionally dissolved in the electrolyte. Before measurement, the gold working electrode is polished for three cycles, washed, dried, and installed with the platinum counter electrode and Ag/AgCl reference electrode.",
+    "electrolyte_preparation_explanation": "In one clean 10 mL experiment vial, dispense 52.176 mg potassium chloride from Quantos cartridge position 1. Dispense 7.000 mL water from syringe-pump channel 1. Add 1.233 mg L-ascorbic acid from Quantos cartridge position 2. Mix with a stir bar for 300 seconds until no visible solids remain. The ascorbic acid must be added immediately before measurement to minimize oxidation during preparation. Purge the mixed solution with nitrogen for 300 seconds to reduce dissolved-oxygen interference, then measure and record pH before the CV test. After the CV test, measure and record pH again.",
+    "parameter_selection_logic": "A 0.10 M KCl aqueous electrolyte was selected because KCl is a conventional inert supporting salt for aqueous CV, is compatible with the Ag/AgCl reference electrode, and can be prepared directly from a Quantos-dispensed solid and pump-dispensed water. A 1.0 mM freshly prepared L-ascorbic acid concentration provides a readily measurable oxidation response while limiting analyte consumption and electrode fouling. The 0.00 to +0.65 V versus Ag/AgCl window captures the expected irreversible ascorbic-acid oxidation on gold while avoiding unnecessarily positive potentials where gold oxide formation becomes more prominent. A 50 mV/s scan rate and 10 mV increment provide an initial characterization-quality voltammogram. Three cycles allow evaluation of oxidation-current loss or electrode fouling. MICROAMPS200 is selected conservatively because a 1 mM diffusion-controlled dissolved analyte on a gold electrode is expected to produce currents in the microampere regime; this assumption should be reviewed if the observed current approaches the range limit.",
+    "selected_mode_explanation": "The requested analyte is Vitamin C dissolved directly in the electrolyte, so analite_in_electrolite is required. L-ascorbic acid is added as a solid analyte to an aqueous supporting electrolyte prepared in the experiment vial. No electrode deposition is used."
+  },
+  "metadata": {
+    "description": "Cyclic voltammetric characterization of dissolved L-ascorbic acid (Vitamin C) in freshly prepared aqueous 0.10 M potassium chloride supporting electrolyte using a gold working electrode, platinum counter electrode, and Ag/AgCl reference electrode.",
+    "experiment_name": "Vitamin C Cyclic Voltammetry in 0.10 M KCl",
+    "experimenter": "Francisco Munguia",
+    "report": true,
+    "user_prompt": "Perform a cyclic voltammetry experiment to characterize Vitamin C as an analyte dissolved in the electrolyte. The Vitamin C should be prepared in the electrolyte and measured using the electrochemical substation. Use the available gold working electrode, platinum counter electrode, and Ag/AgCl reference electrode. Select appropriate electrolyte composition, Vitamin C concentration, CV parameters, mixing/preparation steps, and safety precautions based on the capabilities and constraints provided in the system context. The resulting experiment must be directly executable by the CVLab platform."
+  },
+  "platform_checklist": {
+    "experiment_vials_required_per_batch": 1,
+    "liquids_to_load": [
+      {
+        "channel": 1,
+        "name": "Water",
+        "volume_ml": 7
+      }
+    ],
+    "parallel_echem_slots_used": 1,
+    "solids_to_load": [
+      {
+        "cartridge_position": 1,
+        "mass_mg": 52.176,
+        "name": "Potassium chloride",
+        "role": "salt"
+      },
+      {
+        "cartridge_position": 2,
+        "mass_mg": 1.233,
+        "name": "L-Ascorbic acid (Vitamin C)",
+        "role": "analyte"
+      }
+    ]
+  },
+  "recipe": {
+    "electrode_deposition": {
+      "analyte_name": "",
+      "camera_inspection_after_deposition": false,
+      "deposition_method": "drop_casting",
+      "drying_required": false,
+      "drying_time_seconds": 0,
+      "enabled": false,
+      "sample_volume_ul": 0
+    },
+    "final_volume_ml": 7,
+    "liquids": [
+      {
+        "channel": 1,
+        "dispense_increment_ul": 7,
+        "name": "Water",
+        "volume_ml": 7
+      }
+    ],
+    "mixing_method": "stirrer_bars_mixing",
+    "mixing_time_seconds": 300,
+    "purge": true,
+    "purge_time": 300,
+    "solids": [
+      {
+        "cartridge_position": 1,
+        "mass_mg": 52.176,
+        "molecular_weight_g_mol": 74.5513,
+        "name": "Potassium chloride",
+        "requested_concentration_mol_L": 0.1,
+        "role": "salt"
+      },
+      {
+        "cartridge_position": 2,
+        "mass_mg": 1.233,
+        "molecular_weight_g_mol": 176.12,
+        "name": "L-Ascorbic acid (Vitamin C)",
+        "requested_concentration_mol_L": 0.001,
+        "role": "analyte"
+      }
+    ]
+  },
+  "safety_assessment": {
+    "cross_contamination_risks": [
+      "Residual analyte or chloride electrolyte on the gold electrode can alter subsequent voltammograms; wash and dry electrodes between experiments.",
+      "Residual solids in Quantos dispensing pathways can contaminate later formulations; use dedicated or thoroughly cleaned cartridges.",
+      "Ascorbic acid oxidation products may foul the gold working electrode after repeated scans; inspect and clean the electrode after the run."
+    ],
+    "handling_precautions": [
+      "Wear laboratory coat, safety glasses, and suitable gloves while loading solid cartridges and handling prepared solutions.",
+      "Avoid generating or inhaling ascorbic acid and potassium chloride dust.",
+      "Prepare and measure the Vitamin C solution promptly because aqueous ascorbic acid oxidizes during storage, particularly in air and light.",
+      "Use the substation nitrogen-purge function only in a ventilated laboratory environment.",
+      "Polish, wash, and dry the gold working electrode before the experiment; avoid touching the electrode surface after cleaning.",
+      "Measure pH immediately before and after the CV run using the substation pH measurement capability."
+    ],
+    "hazards": [
+      "L-ascorbic acid is a low-hazard organic acid, but solid dust may irritate eyes, skin, and the respiratory tract.",
+      "Potassium chloride is of relatively low hazard but may irritate eyes or skin as dust.",
+      "Nitrogen purging can displace oxygen in poorly ventilated spaces.",
+      "Gold, platinum, and Ag/AgCl electrodes are delicate components and can be damaged by abrasion, bending, or improper handling."
+    ],
+    "waste_disposal": [
+      "Collect the used aqueous KCl/Vitamin C electrolyte as non-halogenated aqueous electrochemical waste according to local laboratory procedures.",
+      "Do not return used electrolyte to reagent containers.",
+      "Rinse electrodes and the experiment vial with water after measurement and collect rinse waste according to local procedures."
+    ]
+  }
+}

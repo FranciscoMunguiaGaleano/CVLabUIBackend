@@ -311,17 +311,24 @@ def _format_experiment_response(experiment_json):
     # ========================================================
     # CV PARAMETERS
     # ========================================================
-    potential_window = cv.get("potential_window")
-    if (isinstance(potential_window, list) and len(potential_window) >= 2):
-        potential_text = (f"{potential_window[0]} V → {potential_window[1]} V")
+    potentiostat_id = cv.get("potentiostat_id")
+    i_range = cv.get("i_range")
+
+    start_potential = cv.get("start_potential_v")
+    potential_vertex = cv.get("potential_vertex_v")
+    scan_rate = cv.get("scan_rate_mv_s")
+    cycles = cv.get("cycles")
+    step_size = cv.get("increment_v")
+
+    if start_potential is not None and potential_vertex is not None:
+        potential_text = f"{start_potential} V → {potential_vertex} V"
     else:
         potential_text = "Not specified"
-    scan_rate = cv.get("scan_rate_v_s")
-    step_size = cv.get("step_size_v")
-    cycles = cv.get("cycles")
+
     working_electrode = cv.get("working_electrode_type")
     counter_electrode = cv.get("counter_electrode_type")
     reference_electrode = cv.get("reference_electrode")
+
     polishing = cv.get("polishing")
     polishing_cycles = cv.get("polishing_cycles")
     # ========================================================

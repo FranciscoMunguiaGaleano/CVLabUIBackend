@@ -26,6 +26,9 @@ import base64
 
 
 
+
+
+
 BASE_PATH = Path(__file__).resolve().parent.parent
 
 
@@ -43,13 +46,20 @@ ECHEM_ROUTINES_PATH = BASE_PATH / "data" / "routines" / "echem"
 #BOTTOM_CAROUSEL_CONF = Path(os.getcwd()+"/../data/routines/bottom_carousel/bottom_carousel.json")
 #ARM_ROUTINES_PATH = Path(os.getcwd()+"/../data/routines/arm/")
 #ECHEM_ROUTINES_PATH = Path(os.getcwd()+"/../data/routines/echem")
-#POTENTIOSTATS_URL = "http://192.168.0.142:8080/api/v1/potentiostat"
 
+I_range_mode={
+    "MILLIAMPS200" : 1,
+    "MILLIAMPS20" : 2,
+    "MICROAMPS2000" : 3,
+    "MICROAMPS200" : 4,
+    "MICROAMPS20" : 5
+
+}
 
 liquid = {
         "liquid_id": "water",
         "volume": 1000, #uL
-        "source_port": "I1",
+        "source_port": "I2",
         "destination_port": "O1",   
         "waste_port": "O3"
 }
@@ -161,10 +171,29 @@ ph_toledo_meter = ToledoPhMeter(
             toledophmeter_url=config.TOLEDO_PH_METER_URL, 
             servo_url=config.SERVO_URL, 
             servo_port=config.SERVO_PORT)
+
+camera = Camera(
+            name="EchemCamera",
+            camera_url=config.CAMERA_URL
+        )
+#potentiostats = PotentiostatClient(
+#            name= "Ossila Potentiostats",
+#            base_url=config.POTENTIOSTASTS_URL)
 # ---------------------------------------------------
 # Helpers General
 # ---------------------------------------------------
 LIQUIDS_CHANNELS={1:"I2",2:"I3",3:"I4",4:"I5",5:"I6"}
+#POTENTIOSTATS_URL = f"http://{POTENTIOSTASTS_URL}/api/v1/potentiostat"
+POTENTIOSTATS_URL = "http://192.168.0.142:8080/api/v1/potentiostat"
+#                    http://192.168.0.142:8080/api/v1/potentiostat/3/status
+#http://192.168.0.142:8080/api/v1/potentiostat
+#POTENTIOSTATS_URL = f"{config.POTENTIOSTASTS_URL}/api/v1/potentiostat"
+
+
+def encode_image_to_base64(image_path):
+    """Read an image file and return its base64-encoded string."""
+    with open(image_path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode("utf-8")
 
 def run_cyclic_voltammetry(
     potentiostat_id=1,
@@ -175,6 +204,7 @@ def run_cyclic_voltammetry(
     cycles=1,
     increment=0.01,
     show_plot=True,
+    file_name="CV.png"
 ):
     """
     Ejecuta una medición de Cyclic Voltammetry.
@@ -185,7 +215,11 @@ def run_cyclic_voltammetry(
     """
 
     endpoint = f"{POTENTIOSTATS_URL}/{potentiostat_id}/cyclic_voltammetry"
-    plot_endpoint = f"{POTENTIOSTATS_URL}/{potentiostat_id}/cyclic_voltammetry/plot"
+    plot_endpoint = (
+        f"{POTENTIOSTATS_URL}/{potentiostat_id}/cyclic_voltammetry/plot"
+    )
+
+    print(endpoint)
 
     params = {
         "i_range": i_range,
@@ -196,28 +230,37 @@ def run_cyclic_voltammetry(
         "increment": increment,
     }
 
-    # Ejecutar medición
+    # Execute CV measurement
     response = requests.post(endpoint, params=params)
     response.raise_for_status()
 
-    # Leer CSV
+    print(response)
+
+    # Read CSV
     csv_text = response.text
     df = pd.read_csv(StringIO(csv_text))
 
-    # Convertir a lista de diccionarios
+    # Convert to list of dictionaries
     data = df.to_dict(orient="records")
 
-    # Descargar imagen
+    # Download plot image
     img_response = requests.get(plot_endpoint)
     img_response.raise_for_status()
 
+    # Save the actual image
+    if file_name:
+        with open(file_name, "wb") as f:
+            f.write(img_response.content)
+
+    # Display the actual image
     if show_plot:
         img = Image.open(BytesIO(img_response.content))
 
-        plt.figure(figsize=(6,4))
+        plt.figure(figsize=(6, 4))
         plt.imshow(img)
         plt.axis("off")
         plt.show()
+        plt.close()
 
     return df, data
 
@@ -341,7 +384,8 @@ def process_special_commands_arm(gcode):
     command = gcode.strip()
 
     if command == "M100":
-        arm.open_gripper()
+        time.sleep(5)
+        arm.open_gripper();time.sleep(1.5)
 
         return {
             "ok": True,
@@ -349,7 +393,8 @@ def process_special_commands_arm(gcode):
         }
 
     elif command == "M200":
-        arm.close_gripper()
+        time.sleep(5)
+        arm.close_gripper();time.sleep(1.5)
 
         return {
             "ok": True,
@@ -391,7 +436,11 @@ def execute_routine_arm(routine):
     gcodes = load_arm_routine(routine)
     for gcode in gcodes:
         send_robot_gcode_arm(gcode);arm.wait_until_idle()
-        #time.sleep(0.5)
+        time.sleep(0.1)
+        arm.wait_until_idle()
+        time.sleep(0.1)
+        arm.wait_until_idle()
+        time.sleep(0.1)
 def home_arm():
     arm.home();arm.wait_until_idle()
     arm.home();arm.wait_until_idle()
@@ -468,6 +517,9 @@ def update_cached_position_echem(gcode):
     if z is not None:
         echem.Z_axis = truncate_float(z, 3)
 
+    #print(x,y,z)
+    #print(echem.X_axis,echem.Y_axis,echem.Z_axis)
+
 
 def process_special_commands_echem(gcode):
     """
@@ -526,7 +578,13 @@ def send_robot_gcode_echem(gcode):
 
 
 def home_echem():
+    #send_robot_gcode_echem("G1 X10.0 Y0.0 Z0.0");echem.wait_until_idle()
     echem.home();echem.wait_until_idle()
+    #send_robot_gcode_echem("G1 X11.0 Y0.0 Z0.0");echem.wait_until_idle()
+    #echem.home();echem.wait_until_idle()
+    #send_robot_gcode_echem("G1 X11.0 Y0.0 Z0.0");echem.wait_until_idle()
+    ##echem.home();echem.wait_until_idle()
+    #send_robot_gcode_echem("G1 X11.0 Y0.0 Z0.0");echem.wait_until_idle()
     echem.X_axis = 0.0
     echem.Y_axis = 0.0
     echem.Z_axis = 0.0
@@ -534,8 +592,13 @@ def home_echem():
 def execute_routine_echem(routine):
     gcodes = load_echem_routine(routine)
     for gcode in gcodes:
+        #print(gcode)
         send_robot_gcode_echem(gcode);echem.wait_until_idle()
-        #time.sleep(0.5)
+        time.sleep(0.2)
+        echem.wait_until_idle();time.sleep(0.2)
+        echem.wait_until_idle();time.sleep(0.2)
+
+        
 
 def semicircle_g1(start, end, direction=1, segments=20, feed=500):
     """
@@ -642,7 +705,7 @@ def wash_electrodes(cycles=20,electrode_id=1):
         time.sleep(TIMES[electrode_id][3])
     print("[INFO] Washing electrodes cycle finished.")
 
-def stirr_samples(cycles=20,sample_slot_id=1):
+def stirr_samples(cycles=20,sample_slot_id=2):
     TIMES ={
         1:[1.5,1,1.2,1],
         2:[1.1,1.1,0.8,1.4],
@@ -662,6 +725,11 @@ def stirr_samples(cycles=20,sample_slot_id=1):
 
 def fill_washing_vials(carousel_slot=1):
     print(F"[INFO] Filling vials of carousel slot {carousel_slot}")
+    bottom_carousel.move_absolute(str(9));time.sleep(20)
+    print("[INFO] Filling washing vials")
+    bottom_carousel.turn_pumps_on();time.sleep(20)
+    bottom_carousel.turn_pumps_off()
+    bottom_carousel.move_absolute(str(carousel_slot));time.sleep(0)
 
 def photograph_electrode(electrode_id=1):
     return
@@ -702,11 +770,6 @@ def prepare_sample(
     bottom_carousel.home();time.sleep(10)
     print(F"[INFO] Moving bottom carousel to position {carousel_slot}")
     bottom_carousel.move_absolute(str(carousel_slot));time.sleep(10)
-    bottom_carousel.move_absolute(str(9));time.sleep(20)
-    print("[INFO] Filling washing vials")
-    bottom_carousel.turn_pumps_on();time.sleep(10)
-    bottom_carousel.turn_pumps_off()
-    bottom_carousel.move_absolute(str(carousel_slot));time.sleep(0)
     #####################################
     # Filling washing vials
     #####################################
@@ -750,10 +813,22 @@ def prepare_sample(
     solids_dispenser.close_side_doors()
     solids_dispenser.close_front_door();time.sleep(5)
     print("[INFO] Dispensing.");time.sleep(5)
+    solids_dispenser.lock_dosing_head()
     #set antiestatic on
     #tare
-    #dispensing TODO
+    solids_dispenser.tare_balance()
+    #Dispense a sample.
+    #Expects JSON:
+    #solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analyte"]}
+    data = {
+        "sample_id": solids[1][0],
+        "mass": solids[1][1]
+    }
+    solids_dispenser.dispense(data)
     #get weight
+    weight = solids_dispenser.get_sample_data()
+    print(F"[INFO] Dispensed: {weight}")
+    solids_dispenser.unlock_dosing_head()
     #set antiestatic off
     print("[INFO] Opening quantos doors.")
     solids_dispenser.open_side_doors()
@@ -761,33 +836,24 @@ def prepare_sample(
     print(F"[INFO] Returning cartridge number {experiment['analyte']['cartridge_pos']} with {experiment['salt']['sample_id']} to tower.")
     execute_routine_arm(F"place_cartridge_in_tower_{experiment['analyte']['cartridge_pos']}.json")
     ###################################
-    #LIQUID DISPENSING TODO
+    #LIQUID DISPENSING TODO put in a for loop
     ###################################
     print("[INFO] Moving vial to capper.")
     execute_routine_arm("pick_vial_from_quantos.json")
     execute_routine_arm("place_vial_in_capper.json")
     print("[INFO] Dispensing liquid.")
-    capper.hold_vial()
-    print("[INFO] Testing pump..")
+    #capper.hold_vial()
+    liquids_dispenser.piston_to_dispense_position();time.sleep(5)
     print(liquids_dispenser.status());time.sleep(0.3)
     print(liquids_dispenser.get_valve_pos());time.sleep(0.3)
-    print(liquids_dispenser.dispense(liquid));time.sleep(0.3)
-    print(liquids_dispenser.move_home());time.sleep(0.3)
-    ####
-    prime_lines(source_port=1)
-    liquids_dispenser.piston_to_dispense_position();time.sleep(5)
-    #dispense
-    #volume = float(data["volume"])
-    #source_port = data.get("source_port", "I1")
-    #destination_port = data.get("destination_port", "O1")
-    dispensing_data={
-            "volume":5000, #ul
-            "source_port": LIQUIDS_CHANNELS[1],
-            "destination_port": "O1"
-        }
-    liquids_dispenser.dispense(dispensing_data)
-    ####
-    capper.release_vial()
+    liquid["liquid_id"]=liquids[1][2]
+    liquid["volume"]=liquids[1][1]*1000
+    liquid["source_port"]=LIQUIDS_CHANNELS[1]
+    print(f"[INFO] Dispensing {liquids[1][1]*1000} uL of {liquids[1][2]} from port {LIQUIDS_CHANNELS[1]}")
+    liquids_dispenser.dispense(liquid);time.sleep(0.3)
+    liquids_dispenser.move_home();time.sleep(0.3)
+    liquids_dispenser.piston_to_home_position();time.sleep(5)
+    #capper.release_vial()
     execute_routine_arm("pick_vial_from_capper.json")
     ######################################
     # Mixing
@@ -811,7 +877,17 @@ def prepare_sample(
     execute_routine_arm("idle.json")
     home_arm()
 
-def analise_sample(echem_slot=1, experiment_path="", mixing = True):
+def analise_sample(echem_slot=2, cv_file_name="", mixing = True, 
+                   cv_params={
+                       "potentiostat_id":3,
+                       "i_range":5,
+                        "start_potential":0,
+                        "potential_vertex":1,
+                        "scan_rate":100,
+                        "cycles":1,
+                        "increment":0.01,
+                        "show_plot":True,
+                   }):
     ########################################
     # Moving rack from carousel to echem
     ########################################
@@ -822,7 +898,9 @@ def analise_sample(echem_slot=1, experiment_path="", mixing = True):
     # mixing
     ########################################
     if mixing:
-        stirr_samples(cycles=10)
+        stirr_samples(cycles=6)
+    #input("Stop stirring")
+    #sys.exit()
     #########################################
     # Degassing samples before Ph measurement
     ########################################
@@ -837,7 +915,7 @@ def analise_sample(echem_slot=1, experiment_path="", mixing = True):
     execute_routine_arm("pick_ph_probe.json")
     print(F"[INFO] Measuring ph in rack {echem_slot}") 
     execute_routine_arm(F"measure_ph_in_rack_{echem_slot}.json")
-    stirr_samples(cycles=20,sample_slot_id=echem_slot)
+    stirr_samples(cycles=3,sample_slot_id=echem_slot)
     ph_toledo_meter.press_read_button();time.sleep(3)
     msg = ph_toledo_meter.read_ph();time.sleep(2)
     ph_before = msg['pH']
@@ -861,7 +939,7 @@ def analise_sample(echem_slot=1, experiment_path="", mixing = True):
     execute_routine_echem("wash_electrodes_out.json")
     execute_routine_echem("ph_measurement.json")
     print("[INFO] Drying electrodes") 
-    echem.dryer_on();time.sleep(2)
+    echem.dryer_on();time.sleep(3)
     echem.dryer_off();time.sleep(0.1)
     execute_routine_echem("idle.json")
     ###########################################
@@ -869,24 +947,28 @@ def analise_sample(echem_slot=1, experiment_path="", mixing = True):
     ###########################################
     print("[INFO] Sinking electrodes in cell.") 
     execute_routine_echem("cv_start_position.json")
-    degassing_sample(degassing_time=5)
+    degassing_sample(degassing_time=10)
     ###########################################
-    # CV Test TODO add Try catch blocks and repeat if there is a problem
+    #CV Test logic
     ###########################################
     try:
         print("[INFO]  Executing CV test...")
         df, data = run_cyclic_voltammetry(
-            potentiostat_id=echem_slot,
-            i_range=5,
-            start_potential=0,
-            potential_vertex=1,
-            scan_rate=100,
-            cycles=1,
-            increment=0.01,
-            show_plot=True,)
+            potentiostat_id=3,
+            i_range=cv_params["i_range"],
+            start_potential=cv_params["start_potential"],
+            potential_vertex=cv_params["potential_vertex"],
+            scan_rate=cv_params["scan_rate"],
+            cycles=cv_params["cycles"],
+            increment=cv_params["increment"],
+            show_plot=cv_params["show_plot"],
+            file_name=cv_file_name)
+        V = df["Potential"].values
+        I = df["Current"].values
         print("[INFO] CV test done.") 
-    except:
-        print("[Error] not possible to connect with potentiostats")
+    except Exception as e:
+            print(F"[Error] not possible to connect with potentiostats: {e}")
+    #print(photograph_electrode(electrode_number=1, file_name=paths["imgs"] / "electrode_after.png"))
     execute_routine_echem("cv_end_position.json")
     execute_routine_echem("idle.json")
     home_echem()
@@ -899,7 +981,7 @@ def analise_sample(echem_slot=1, experiment_path="", mixing = True):
     execute_routine_arm("pick_ph_probe.json")
     print(F"[INFO] Measuring ph in rack {echem_slot}") 
     execute_routine_arm(F"measure_ph_in_rack_{echem_slot}.json")
-    stirr_samples(cycles=20,sample_slot_id=1)
+    stirr_samples(cycles=3,sample_slot_id=1)
     ph_toledo_meter.press_read_button();time.sleep(3)
     msg = ph_toledo_meter.read_ph();time.sleep(2)
     ph_after = msg['pH']
@@ -922,7 +1004,7 @@ def analise_sample(echem_slot=1, experiment_path="", mixing = True):
     #############################################
     print("[INFO] Returning rack to carousel.")
     execute_routine_arm("idle.json")
-    execute_routine_arm("pick_rack_from_1.json")
+    execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
     execute_routine_arm("place_rack_in_bottom_carousel.json")
     ##############################################
     #POLISHING? YES POLISH no? continue TODO
@@ -939,6 +1021,7 @@ def analise_sample(echem_slot=1, experiment_path="", mixing = True):
             break
     print("[INFO] Workflow finished, homing arm.")
     home_arm()
+    return I, V, ph_before, ph_after
 ####json logic
 ####
 def select_json(experiments_path):
@@ -1515,15 +1598,31 @@ def json_to_pdf(report_data, output_pdf_path, input_data=None, image_paths=None)
 
         liquids = recipe.get("liquids", [])
         liquids_text = "\n".join(f"- {l.get('name', 'Unknown')} ({l.get('volume_ml', 'N/A')} mL)" for l in liquids) if liquids else "- None"
+        #"cv_parameters": {
+        #"potentiostat_id": 1,
+        #"i_range": "MICROAMPS200",
+        #"start_potential_v": 0.0,
+        #"potential_vertex_v": 0.0,
+        #"scan_rate_mv_s": 100.0,
+        #"cycles": 1,
+        #"increment_v": 0.01,
+        #"reference_electrode": "Ag/AgCl",
+        #"working_electrode_type": "Gold",
+        #"counter_electrode_type": "Platinum",
+        #"polishing": true,
+        #"polishing_cycles": 0
+        #},
+        #potential_window = cv.get("potential_window")
+        #if isinstance(potential_window, list) and len(potential_window) >= 2:
+        #    potential_text = f"{potential_window[0]} V -> {potential_window[1]} V"
+        #else:
+        #    potential_text = "Not specified"
+        start_potential = cv.get("start_potential_v")
+        end_potential = cv.get("potential_vertex_v")
+        potential_text = F"{start_potential} V -> {end_potential} V"
 
-        potential_window = cv.get("potential_window")
-        if isinstance(potential_window, list) and len(potential_window) >= 2:
-            potential_text = f"{potential_window[0]} V -> {potential_window[1]} V"
-        else:
-            potential_text = "Not specified"
-
-        scan_rate = cv.get("scan_rate_v_s")
-        step_size = cv.get("step_size_v")
+        scan_rate = cv.get("scan_rate_mv_s")
+        step_size = cv.get("increment_v")
         cycles = cv.get("cycles")
         working_electrode = cv.get("working_electrode_type")
         counter_electrode = cv.get("counter_electrode_type")
@@ -1584,14 +1683,15 @@ def json_to_pdf(report_data, output_pdf_path, input_data=None, image_paths=None)
     ce = cell.get("counter_electrode") or setup.get("counter_electrode") or input_params.get("counter_electrode_type")
     re = cell.get("reference_electrode") or setup.get("reference_electrode") or input_params.get("reference_electrode")
     
-    pot_window = (
-        params.get("potential_window_V_vs_AgAgCl") 
-        or params.get("potential_window_V_vs_Ag_AgCl") 
-        or input_params.get("potential_window")
-    )
+    #pot_window = (
+    #    params.get("potential_window_V_vs_AgAgCl") 
+    #    or params.get("potential_window_V_vs_Ag_AgCl") 
+    #    or input_params.get("potential_window")
+    #)
+    pot_window = [params.get("start_potential_v"), params.get("potential_vertex_v")]
     
-    scan_rate = params.get("scan_rate_V_s") or input_params.get("scan_rate_v_s")
-    step_size = params.get("step_size_V") or input_params.get("step_size_v")
+    scan_rate = params.get("scan_rate_mV_s") or input_params.get("scan_rate_mv_s")
+    step_size = params.get("increment_V") or input_params.get("increment_v")
     cycles = params.get("reported_cycles") or params.get("cycles") or input_params.get("cycles")
     polishing = params.get("working_electrode_polished") if "working_electrode_polished" in params else input_params.get("polishing")
     
@@ -1822,12 +1922,54 @@ def json_to_pdf(report_data, output_pdf_path, input_data=None, image_paths=None)
     doc.build(story)
     print(f"[INFO] Generated complete PDF report: {output_pdf_path}")
 
+def photograph_electrode(electrode_number=1, file_name=""):
+    """Photograph an electrode and save the image to file_name."""
+    # Move camera under the requested electrode
+    #home_echem()
+    #execute_routine_echem("idle.json")
+    execute_routine_echem(f"camera_under_electrode_{electrode_number}.json");time.sleep(3)
+    # Capture image from Flask camera API
+    electrode_photo = camera.capture() ;time.sleep(2)
+    execute_routine_echem(f"zero.json")
+    # Save JPEG bytes to the requested file
+    with open(file_name, "wb") as f:
+        f.write(electrode_photo)
+    #execute_routine_echem("idle.json")
+    #home_echem()
+    #home_echem()
+    return file_name
+
 if __name__ == "__main__":
     # 1. Initialize workflow paths and load user script
     experiment, paths = load_experiment()
-    bottom_carousel.turn_pumps_on();time.sleep(10)
-    bottom_carousel.turn_pumps_off()
-    sys.exit()
+    #"cv_parameters": {
+    #"potentiostat_id": 1,
+    #"i_range": "MICROAMPS200",
+    #"start_potential_v": 0.0,
+    #"potential_vertex_v": 0.0,
+    #"scan_rate_mv_s": 100.0,,
+    #"cycles": 1,
+    #"increment_v": 0.01,
+    #"reference_electrode": "Ag/AgCl",
+    #"working_electrode_type": "Gold",
+    #"counter_electrode_type": "Platinum",
+    #"polishing": true,
+    #"polishing_cycles": 0
+    #},
+    cv_params={
+        "potentiostat_id":3,
+        "i_range":I_range_mode[experiment["cv_parameters"]["i_range"]],
+        "start_potential":experiment["cv_parameters"]["start_potential_v"],
+        "potential_vertex":experiment["cv_parameters"]["potential_vertex_v"],
+        "scan_rate":experiment["cv_parameters"]["scan_rate_mv_s"],
+        "cycles":experiment["cv_parameters"]["cycles"],
+        "increment":experiment["cv_parameters"]["increment_v"],
+        "show_plot":True,
+    }
+    #print(cv_params)
+    #bottom_carousel.turn_pumps_on();time.sleep(10)
+    #bottom_carousel.turn_pumps_off()
+    #sys.exit()
     # 1.1 Execute 
 
     #    "solids": [
@@ -1860,42 +2002,71 @@ if __name__ == "__main__":
         liquids[liquid['channel']]= [liquid['name'],liquid['volume_ml'],"solvent"]
     print(liquids) 
     #sys.exit()
-    prepare_sample(solids=solids,
-                   liquids=liquids,
-                   experiment={
-        solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1},
-        solids[2][2]: {'sample_id':solids[2],'cartridge_pos':2}
-    })
-    input("Continue?")
-    analise_sample()
+    #
+    #prepare_sample(solids=solids,
+    #               liquids=liquids,
+    #               experiment={
+    #    solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1},
+    #    solids[2][2]: {'sample_id':solids[2],'cartridge_pos':2}
+    #})
+    #input("Continue?")
+    home_echem()
+    print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
+    V, I, ph_before, ph_after = analise_sample(echem_slot=2,cv_file_name=paths["imgs"] / "CV.png",cv_params=cv_params)
+    #input("continue?")
+    ###########################################
+    #CV Test logic SIMULATION
+    ###########################################
+    #try:
+    #    print("[INFO]  Executing CV test...")
+    #    df, data = run_cyclic_voltammetry(
+    #        potentiostat_id=3,
+    #        i_range=cv_params["i_range"],
+    #        start_potential=cv_params["start_potential"],
+    #        potential_vertex=cv_params["potential_vertex"],
+    #        scan_rate=cv_params["scan_rate"],
+    #        cycles=3,
+    #        increment=cv_params["increment"],
+    #        show_plot=cv_params["show_plot"],
+    #        file_name=paths["imgs"] / "CV.png")
+    #    V = df["Potential"].values
+    #    I = df["Current"].values
+    #    print("[INFO] CV test done.") 
+    #except Exception as e:
+    #        print(F"[Error] not possible to connect with potentiostats: {e}")
+    print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
+    home_echem()
     # 2. Mock results execution (Simulated Data for pipeline verification)
+    #input("continue?")
     print("[INFO] Simulating experiment execution...")
-
     # Mock CV data
-    mock_cv_data = {
-        "potential_V": [-0.2, 0.0, 0.2, 0.4, 0.6, 0.8, 0.4, 0.0, -0.2],
-        "current_uA": [0.1, 0.2, 1.5, 12.4, 3.1, 0.8, 0.2, 0.1, 0.1],
+    cv_data = {
+        "potential_V": V.tolist(),
+        "current_uA": I.tolist(),
         "cycles": 3,
-        "is_simulated": True,
+        "is_simulated": False,
     }
+    print(cv_data)
     with open(paths["data"] / "cv_raw.json", "w", encoding="utf-8") as f:
-        json.dump(mock_cv_data, f, indent=2)
+        json.dump(cv_data, f, indent=2)
 
-    # Mock pH data
-    mock_ph_data = {"ph_before": 6.8, "ph_after": 3.9, "is_simulated": True}
+    # pH data
+    ph_before=7
+    ph_after=7
+    ph_data = {"ph_before": ph_before, "ph_after": ph_after, "is_simulated": False}
     with open(paths["data"] / "ph_measurements.json", "w", encoding="utf-8") as f:
-        json.dump(mock_ph_data, f, indent=2)
+        json.dump(ph_data, f, indent=2)
 
     # Collect mock results directory references
     results_data = {
-        "cv_raw": mock_cv_data,
-        "ph_measurements": mock_ph_data,
+        "cv_raw": cv_data,
+        "ph_measurements": ph_data,
         "images": {
             "electrode_before": paths["imgs"] / "electrode_before.png",
             "electrode_after": paths["imgs"] / "electrode_after.png",
             "CV": paths["imgs"] / "CV.png",
         },
-        "is_simulated": True,
+        "is_simulated": False,
     }
 
     # 3. Generate Report

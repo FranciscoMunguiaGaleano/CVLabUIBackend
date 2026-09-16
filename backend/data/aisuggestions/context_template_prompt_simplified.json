@@ -340,20 +340,31 @@
         }
       },
 
-      "cv_parameters": {
-        "potential_window": [
-          0.0,
-          0.0
-        ],
-        "scan_rate_v_s": 0.0,
-        "cycles": 0,
-        "step_size_v": 0.0,
-        "reference_electrode": "Ag/AgCl",
-        "working_electrode_type": "Gold",
-        "counter_electrode_type": "Platinum",
-        "polishing": true,
-        "polishing_cycles": 0
-      },
+"cv_parameters": {
+    "potentiostat_id": 1,
+    "i_range": "MICROAMPS200",
+    "start_potential_v": 0.0,
+    "potential_vertex_v": 0.0,
+    "scan_rate_mv_s": 100.0,
+    "cycles": 1,
+    "increment_v": 0.01,
+    "reference_electrode": "Ag/AgCl",
+    "working_electrode_type": "Gold",
+    "counter_electrode_type": "Platinum",
+    "polishing": true,
+    "polishing_cycles": 0
+    },
+"I_RANGE_MODES": {
+    "description": "Allowed current range modes for the OSSCILA potentiostat. The i_range field MUST contain exactly one of these string values. Do not use numeric values and do not use AUTO.",
+    "allowed_values": {
+        "MILLIAMPS200": "200 mA current range",
+        "MILLIAMPS20": "20 mA current range",
+        "MICROAMPS2000": "2000 µA (2 mA) current range",
+        "MICROAMPS200": "200 µA current range",
+        "MICROAMPS20": "20 µA current range"
+    },
+    "rule": "Choose the current range appropriate for the expected current of the experiment. If the expected current is unknown, select the most appropriate conservative range based on the experimental context and explicitly state the assumption in llm_reasoning.assumptions."
+},
 
       "platform_checklist": {
         "solids_to_load": [

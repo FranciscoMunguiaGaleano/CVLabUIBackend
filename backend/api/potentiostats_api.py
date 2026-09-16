@@ -82,6 +82,11 @@ def error_figure(title, xlabel, ylabel):
     return img
 
 
+@potentiostat_bp.route("/health")
+def health():
+    return {"status": "ok"}
+
+
 # -----------------------------------
 # STATUS
 # -----------------------------------
