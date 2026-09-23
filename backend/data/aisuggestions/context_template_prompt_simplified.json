@@ -24,13 +24,12 @@
       "Liquid_Dispensing": {
         "syringe_pump_channels": 4,
         "max_liquids_per_experiment": 4,
-        "dispense_increment_ul": 7,
-        "purpose": "Dispenses compatible liquid solvents only.",
+        "purpose": "Dispenses compatible solvents. ALWAYS FILL THE VIALS WITH TOTAL VOLUME OF 15mL of solvent, otherwise the electrodes will not touch the electrolyte.",
         "examples": [
           "Water",
           "Other explicitly available pump-compatible solvents"
         ],
-        "important_rule": "The liquid pump cannot dispense solid reagents and cannot be assumed to contain pre-prepared electrolyte or analyte solutions."
+        "important_rule": "The liquid pump cannot dispense solid reagents and cannot be assumed to contain pre-prepared electrolyte or analyte solutions. ALWAYS FILL THE VIALS WITH A TOTAL VOLUME OF 15mL of solvents, otherwise the electrodes will not touch the electrolyte."
       },
 
       "Vial_System": {
@@ -38,14 +37,14 @@
           "racks": 12,
           "water_wash_vials_per_rack": 3,
           "experiment_vials_per_rack": 1,
-          "max_capacity_in_ml": 10,
-          "use": "analite_in_electrolite"
+          "max_capacity_in_ml": 20,
+          "use": "analyte_in_electrolyte"
         },
 
         "top_carousel": {
           "storage_vials": 18,
-          "max_capacity_in_ml": 10,
-          "use": "analite_on_working_electrode"
+          "max_capacity_in_ml": 20,
+          "use": "analyte_on_working_electrode"
         },
 
         "max_total_vials": 31
@@ -70,25 +69,18 @@
           "camera_inspection_of_WE",
           "mixing_samples_with_stirrer_bars",
           "pH meassurement"
-        ],
-
-        "working_electrode": "Gold",
-        "reference_electrode": "Ag/AgCl",
-        "counter_electrode": "Platinum"
+        ]
       },
 
       "Constraints": {
         "num_samples_max": 31,
-        "final_volume_ml_max": 10,
-        "parallel_echem_slots_max": 3,
-        "reference_electrode": "Ag/AgCl",
-        "working_electrode": "Gold",
-        "counter_electrode": "Platinum"
+        "final_volume_ml_max": 15,
+        "parallel_echem_slots_max": 3
       }
     },
 
     "SUPPORTED_EXPERIMENT_MODES": {
-      "analite_in_electrolite": {
+      "analyte_in_electrolyte": {
         "definition": "The analyte is dissolved directly in an electrolyte prepared inside the experiment vial. Solid electrolyte components and solid analytes are dispensed using the Quantos. Compatible liquid solvents are dispensed using the syringe pump. The resulting solution is mixed and then measured electrochemically.",
         "required_fields": [
           "metadata",
@@ -106,12 +98,17 @@
           "Purge electrolyte with nitrogen if necessary",
           "Measure pH of electrolyte before test",
           "Perform CV measurement.",
-          "Measure pH of electrolite after test."
-        ]
+          "Measure pH of electrolyte after test."
+        ],
+        "Constraints": {
+        "reference_electrode": "Ag/AgCl in KCl 3M",
+        "working_electrode": "Gold (d = 2 mm)",
+        "counter_electrode": "Platinum wire"
+      }
       },
 
-      "analite_on_working_electrode": {
-        "definition": "The analyte is deposited onto the Gold working electrode rather than remaining dissolved in the electrolyte during the measurement. The electrolyte must first be prepared inside the vial. The analyte sample or ink is then transferred to the working electrode and cast/deposited onto it. The deposited material must be allowed to dry for the specified time before electrochemical measurement when drying is required.",
+      "analyte_on_working_electrode": {
+        "definition": "The analyte is deposited onto the Gold working electrode (d = 2 mm) rather than remaining dissolved in the electrolyte during the measurement. The electrolyte must first be prepared inside the vial. The analyte sample or ink is then transferred to the working electrode and cast/deposited onto it. The deposited material must be allowed to dry for the specified time before electrochemical measurement when drying is required.",
         "required_fields": [
           "metadata",
           "recipe",
@@ -131,7 +128,7 @@
           "Purge electrolyte with nitrogen if necessary",
           "Measure pH of electrolyte before test",
           "Perform CV measurement.",
-          "Measure pH of electrolite after test."
+          "Measure pH of electrolyte after test."
         ],
         "examples": [
           "PEDOT:PSS",
@@ -197,11 +194,6 @@
         "mixing_required_after_solid_addition": true
       },
 
-      "dispensing_constraint": {
-        "liquid_dispense_increment_ul": 7,
-        "rule": "Liquid volumes must respect the available 7 µL dispense increment. If a requested liquid volume cannot be represented by available dispensing operations, explicitly report the discrepancy and explain how the planned volume was rounded or adjusted."
-      },
-
       "execution_rule": "The AI Scientist must only propose directly executable preparation steps using the available dispensing hardware. It must not assume that arbitrary liquid reagents, pre-made electrolyte solutions, or pre-made analyte solutions are available."
     },
 
@@ -231,8 +223,8 @@
       "important_rule": "Never invent a molecular weight silently. The molecular weight used in the calculation must be explicitly reported in llm_reasoning.concentration_calculations. If chemical identity is ambiguous, state the assumption explicitly."
     },
 
-    "ANALYTE_IN_ELECTROLITE_RULES": {
-      "description": "For analyte_in_electrolite experiments, the analyte must be dissolved in the prepared electrolyte.",
+    "ANALYTE_IN_ELECTROLYTE_RULES": {
+      "description": "For analyte_in_electrolyte experiments, the analyte must be dissolved in the prepared electrolyte.",
 
       "rules": [
         "Identify the analyte explicitly.",
@@ -254,7 +246,7 @@
 
       "rules": [
         "Prepare the electrolyte before electrode deposition.",
-        "The electrolyte preparation must follow the same concentration, molecular-weight, mass, volume, and hardware rules as analyte_in_electrolite.",
+        "The electrolyte preparation must follow the same concentration, molecular-weight, mass, volume, and hardware rules as analyte_in_electrolyte.",
         "Identify the analyte material being deposited onto the Gold working electrode.",
         "For ink-based samples such as PEDOT:PSS, describe the sample as an analyte or ink_component rather than incorrectly treating it as the supporting electrolyte.",
         "Specify the sample or ink volume used for casting.",
@@ -277,7 +269,7 @@
       "For an analyte dissolved in the electrolyte, add the analyte using the appropriate dispensing mechanism before the mixing step.",
       "For an analyte deposited on the working electrode, prepare the electrolyte first, then perform the analyte deposition/casting operation.",
       "Include mixing after adding solid reagents so that the prepared solution becomes homogeneous before electrochemical measurement.",
-      "Never exceed 10 mL final vial capacity.",
+      "Never exceed 15 mL final vial capacity.",
       "Never use more than 8 solid cartridges.",
       "Never use more than 4 liquid pump channels.",
       "Never use more than 3 parallel electrochemical slots.",
@@ -288,11 +280,11 @@
     ],
 
     "JSON_SCHEMA": {
-      "experiment_mode": "analite_in_electrolite | analite_on_working_electrode",
+      "experiment_mode": "analyte_in_electrolyte | analyte_on_working_electrode",
 
       "metadata": {
         "experiment_name": "",
-        "experimenter": "Francisco Munguia",
+        "experimenter": "CVLab",
         "description": "",
         "report": true,
         "user_prompt": ""
@@ -332,7 +324,7 @@
         "electrode_deposition": {
           "enabled": false,
           "analyte_name": "",
-          "sample_volume_ul": 0,
+          "sample_volume_ul": 7,
           "deposition_method": "drop_casting",
           "drying_required": false,
           "drying_time_seconds": 0,
@@ -348,18 +340,19 @@
     "scan_rate_mv_s": 100.0,
     "cycles": 1,
     "increment_v": 0.01,
-    "reference_electrode": "Ag/AgCl",
-    "working_electrode_type": "Gold",
-    "counter_electrode_type": "Platinum",
+    "reference_electrode": "Ag/AgCl 3M KCl in H2O | Ag/Ag+ 0.01M AgNO3 in ACN",
+    "working_electrode_type": "Gold (d = 2 mm)",
+    "counter_electrode_type": "Platinum wire",
     "polishing": true,
-    "polishing_cycles": 0
+    "polishing_cycles": 0,
+    "solvent_type": "aqueous | non-aqueous"
     },
 "I_RANGE_MODES": {
     "description": "Allowed current range modes for the OSSCILA potentiostat. The i_range field MUST contain exactly one of these string values. Do not use numeric values and do not use AUTO.",
     "allowed_values": {
         "MILLIAMPS200": "200 mA current range",
         "MILLIAMPS20": "20 mA current range",
-        "MICROAMPS2000": "2000 µA (2 mA) current range",
+        "MICROAMPS2000": "2000 µA current range",
         "MICROAMPS200": "200 µA current range",
         "MICROAMPS20": "20 µA current range"
     },
@@ -424,7 +417,7 @@
     "REQUIRED_VALIDATION_BEFORE_OUTPUT": [
       "solids ≤ 8",
       "liquids ≤ 4",
-      "final_volume_ml ≤ 10",
+      "final_volume_ml = 15 mL",
       "parallel_echem_slots ≤ 3",
       "solid_mass_mg ≤ 200 per Quantos cartridge",
       "All required molecular weights are explicitly stated",
@@ -433,9 +426,9 @@
       "Total liquid volume does not exceed final_volume_ml",
       "Solid reagents are represented in solids, never liquids",
       "Liquid pump materials are compatible solvents",
-      "analite_in_electrolite experiments explicitly identify the analyte and electrolyte",
-      "analite_on_working_electrode experiments explicitly prepare the electrolyte before electrode deposition",
-      "analite_on_working_electrode experiments explicitly identify deposition volume and drying requirements when applicable",
+      "analyte_in_electrolyte experiments explicitly identify the analyte and electrolyte",
+      "analyte_on_working_electrode experiments explicitly prepare the electrolyte before electrode deposition",
+      "analyte_on_working_electrode experiments explicitly identify deposition volume and drying requirements when applicable",
       "Potential window, scan rate, cycles, and step size are explicitly defined"
     ],
 
@@ -449,7 +442,7 @@
       "Include explicit reagent roles",
       "Include electrolyte preparation explanation",
       "Include analyte preparation explanation",
-      "Include electrode deposition explanation when experiment_mode is analite_on_working_electrode",
+      "Include electrode deposition explanation when experiment_mode is analyte_on_working_electrode",
       "Include drying explanation when applicable",
       "Include platform checklist",
       "Include safety assessment",

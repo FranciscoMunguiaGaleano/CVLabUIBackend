@@ -28,7 +28,7 @@ LAST_RESULTS = {}
 # -----------------------------------
 # GENERIC FIGURE BUILDER
 # -----------------------------------
-def making_figure(csv_bytes, title, xlabel, ylabel):
+""" def making_figure(csv_bytes, title, xlabel, ylabel, cycle_label):
     try:
         if csv_bytes is None:
             raise RuntimeError("No data")
@@ -58,6 +58,59 @@ def making_figure(csv_bytes, title, xlabel, ylabel):
 
         return img
 
+    except Exception:
+        return error_figure("Plot Error", xlabel, ylabel) """
+
+def making_figure(csv_bytes, title, xlabel, ylabel, cycle_label):
+    try:
+        if csv_bytes is None:
+            raise RuntimeError("No data")
+
+        csv_text = csv_bytes.decode("utf-8")
+        csv_data = StringIO(csv_text)
+        reader = csv.DictReader(csv_data)
+
+        cycles = {}
+
+        for row in reader:
+            cycle = int(row[cycle_label])
+            x = float(row[xlabel])
+            y = float(row[ylabel])
+
+            if cycle not in cycles:
+                cycles[cycle] = {"x": [], "y": []}
+
+            cycles[cycle]["x"].append(x)
+            cycles[cycle]["y"].append(y)
+
+        plt.figure()
+
+        #cmap = plt.get_cmap("viridis")
+        cmap = plt.get_cmap("Blues")
+        n_cycles = len(cycles)
+
+        for i, cycle in enumerate(sorted(cycles)):
+            #color = cmap(i / max(n_cycles - 1, 1))
+            color = cmap(0.4 + 0.5 * i / max(n_cycles - 1, 1))
+
+            plt.plot(
+                cycles[cycle]["x"],
+                cycles[cycle]["y"],
+                color=color,
+                label=f"Cycle {cycle}"
+            )
+
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(title)
+        plt.grid()
+        plt.legend()
+
+        img = io.BytesIO()
+        plt.savefig(img, format="png", bbox_inches="tight")
+        plt.close("all")
+        img.seek(0)
+        return img
     except Exception:
         return error_figure("Plot Error", xlabel, ylabel)
 
@@ -154,7 +207,8 @@ def cyclic_voltammetry_plot(p_id):
             result,
             title=f"Cyclic Voltammetry (P{p_id})",
             xlabel="Potential",
-            ylabel="Current"
+            ylabel="Current",
+            cycle_label="Cycle"
         )
 
         # ✅ CLEAR AFTER USE

@@ -22,13 +22,6 @@ import base64
 
 
 
-
-
-
-
-
-
-
 BASE_PATH = Path(__file__).resolve().parent.parent
 
 
@@ -794,11 +787,23 @@ def prepare_sample(
     print("[INFO] Closing quantos doors.")
     solids_dispenser.close_side_doors()
     solids_dispenser.close_front_door();time.sleep(5)
-    print("[INFO] Dispensing...");time.sleep(5)
+    print("[INFO] Dispensing.");time.sleep(5)
+    solids_dispenser.lock_dosing_head()
     #set antiestatic on
     #tare
-    #dispensing TODO
+    solids_dispenser.tare_balance()
+    #Dispense a sample.
+    #Expects JSON:
+    #solids={1:["NaCl",10, "Salt"],2:["Ferrocynade",1, "Analyte"]}
+    data = {
+        "sample_id": solids[1][0],
+        "mass": solids[1][1]
+    }
+    solids_dispenser.dispense(data)
     #get weight
+    weight_salt = solids_dispenser.get_sample_data()
+    print(F"[INFO] Dispensed: {weight_salt}")
+    solids_dispenser.unlock_dosing_head()
     #set antiestatic off
     print("[INFO] Opening quantos doors.")
     solids_dispenser.open_side_doors()
@@ -819,15 +824,15 @@ def prepare_sample(
     solids_dispenser.tare_balance()
     #Dispense a sample.
     #Expects JSON:
-    #solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analyte"]}
+    #solids={1:["NaCl",10, "Salt"],2:["Ferrocynade",1, "Analyte"]}
     data = {
-        "sample_id": solids[1][0],
-        "mass": solids[1][1]
+        "sample_id": solids[2][0],
+        "mass": solids[2][1]
     }
     solids_dispenser.dispense(data)
     #get weight
-    weight = solids_dispenser.get_sample_data()
-    print(F"[INFO] Dispensed: {weight}")
+    weight_analyte = solids_dispenser.get_sample_data()
+    print(F"[INFO] Dispensed: {weight_analyte}")
     solids_dispenser.unlock_dosing_head()
     #set antiestatic off
     print("[INFO] Opening quantos doors.")
@@ -887,6 +892,11 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
                         "cycles":1,
                         "increment":0.01,
                         "show_plot":True,
+                   },
+                   mixing_params={"mixing_type": "stirrer",
+                                  "mixing_time_s": 300},
+                   purging_params={
+                       "purging_time_s":180
                    }):
     ########################################
     # Moving rack from carousel to echem
@@ -897,8 +907,8 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     ########################################
     # mixing
     ########################################
-    if mixing:
-        stirr_samples(cycles=6)
+    if mixing_params=='stirrer':
+        stirr_samples(cycles=int(mixing_params['mixing_time_s']/2.5)) #each cycle takes 2.5 secs
     #input("Stop stirring")
     #sys.exit()
     #########################################
@@ -919,6 +929,7 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     ph_toledo_meter.press_read_button();time.sleep(3)
     msg = ph_toledo_meter.read_ph();time.sleep(2)
     ph_before = msg['pH']
+    temp_before =msg['temperature_C']
     print(F"[INFO] Measurement done: {ph_before}") 
     execute_routine_arm(F"measure_ph_in_rack_{echem_slot}_out.json")
     ########################################
@@ -935,39 +946,117 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     ########################################
     print("[INFO] Washing electrodes.") 
     execute_routine_echem("wash_electrodes.json")
-    wash_electrodes(cycles=20,electrode_id=echem_slot)#TODO aqui se hay que dejarlo arriba
+    wash_electrodes(cycles=10,electrode_id=echem_slot)
     execute_routine_echem("wash_electrodes_out.json")
     execute_routine_echem("ph_measurement.json")
     print("[INFO] Drying electrodes") 
-    echem.dryer_on();time.sleep(3)
+    echem.dryer_on();time.sleep(30)
     echem.dryer_off();time.sleep(0.1)
     execute_routine_echem("idle.json")
     ###########################################
-    #PHOTO BEFORE EXPERIMENT OF ELECTRODES TODO rutinas guardarlas y guardar foto 
+    #PHOTO BEFORE EXPERIMENT OF ELECTRODES 
     ###########################################
     print("[INFO] Sinking electrodes in cell.") 
     execute_routine_echem("cv_start_position.json")
-    degassing_sample(degassing_time=10)
+    degassing_sample(degassing_time=purging_params['purging_time_s'])
     ###########################################
     #CV Test logic
     ###########################################
+    #try:
+    #    print("[INFO]  Executing CV test...")
+    #    df, data = run_cyclic_voltammetry(
+    #        potentiostat_id=3,
+    #        i_range=cv_params["i_range"],
+    #        start_potential=cv_params["start_potential"],
+    #        potential_vertex=cv_params["potential_vertex"],
+    #        scan_rate=cv_params["scan_rate"],
+    #        cycles=cv_params["cycles"],
+    #        increment=cv_params["increment"],
+    #        show_plot=cv_params["show_plot"],
+    #        file_name=cv_file_name)
+    #    V = df["Potential"].values
+    #    I = df["Current"].values
+    #    C = df["Cycle"].values
+    #    print("[INFO] CV test done.") 
+    #except Exception as e:
+    #        print(F"[Error] not possible to connect with potentiostats: {e}")
     try:
-        print("[INFO]  Executing CV test...")
-        df, data = run_cyclic_voltammetry(
-            potentiostat_id=3,
-            i_range=cv_params["i_range"],
-            start_potential=cv_params["start_potential"],
-            potential_vertex=cv_params["potential_vertex"],
-            scan_rate=cv_params["scan_rate"],
-            cycles=cv_params["cycles"],
-            increment=cv_params["increment"],
-            show_plot=cv_params["show_plot"],
-            file_name=cv_file_name)
+        print("[INFO] Executing CV test...")
+        df, data = run_cyclic_voltammetry(potentiostat_id=3, 
+                                          i_range=cv_params["i_range"], 
+                                          start_potential=cv_params["start_potential"], 
+                                          potential_vertex=cv_params["potential_vertex"], 
+                                          scan_rate=cv_params["scan_rate"], 
+                                          cycles=cv_params["cycles"], 
+                                          increment=cv_params["increment"], 
+                                          show_plot=cv_params["show_plot"], 
+                                          file_name=cv_file_name)
         V = df["Potential"].values
         I = df["Current"].values
-        print("[INFO] CV test done.") 
+        C = df["Cycle"].values
+        print("[INFO] CV test done.")
+
     except Exception as e:
-            print(F"[Error] not possible to connect with potentiostats: {e}")
+        print(f"[ERROR] Not possible to connect with potentiostat: {e}")
+        print("\n[INFO] Original CV configuration:")
+        print("[INFO] Original CV configuration:")
+        print(f"       i_range={cv_params['i_range']}")
+        print(f"       start_potential={cv_params['start_potential']}")
+        print(f"       potential_vertex={cv_params['potential_vertex']}")
+        print(f"       scan_rate={cv_params['scan_rate']}")
+        print(f"       cycles={cv_params['cycles']}")
+        print(f"       increment={cv_params['increment']}")
+        print(f"       show_plot={cv_params['show_plot']}")
+        print(f"       file_name={cv_file_name}")
+        while True:
+            repeat = input("\nDo you want to repeat the CV test? (Y/N): ").strip().upper()
+
+            if repeat == "N" or repeat == "n":
+                print("[INFO] CV test cancelled.")
+                break
+
+            if repeat != "Y" or repeat != "Y":
+                print("[ERROR] Please enter Y or N.")
+                continue
+
+            print("\n[INFO] Enter new values. Press ENTER to keep the current value.")
+
+            try:
+                #cv_params["i_range"] = float(input(f"i_range [{cv_params['i_range']}]: ") or cv_params["i_range"])
+                cv_params["start_potential"] = float(input(f"start_potential [{cv_params['start_potential']}]: ") or cv_params["start_potential"])
+                cv_params["potential_vertex"] = float(input(f"potential_vertex [{cv_params['potential_vertex']}]: ") or cv_params["potential_vertex"])
+                #cv_params["scan_rate"] = float(input(f"scan_rate [{cv_params['scan_rate']}]: ") or cv_params["scan_rate"])
+                #cv_params["cycles"] = int(input(f"cycles [{cv_params['cycles']}]: ") or cv_params["cycles"])
+                #cv_params["increment"] = float(input(f"increment [{cv_params['increment']}]: ") or cv_params["increment"])
+
+                #show_plot = input(f"show_plot (Y/N) [{'Y' if cv_params['show_plot'] else 'N'}]: ").strip().upper()
+                #if show_plot:
+                #    cv_params["show_plot"] = show_plot == "Y"
+
+                file_name = input(f"file_name [{cv_file_name}]: ").strip()
+                if file_name:
+                    cv_file_name = file_name
+
+                print("\n[INFO] New CV configuration:")
+                print(f"       i_range={cv_params['i_range']}")
+                print(f"       start_potential={cv_params['start_potential']}")
+                print(f"       potential_vertex={cv_params['potential_vertex']}")
+                print(f"       scan_rate={cv_params['scan_rate']}")
+                print(f"       cycles={cv_params['cycles']}")
+                print(f"       increment={cv_params['increment']}")
+                print(f"       show_plot={cv_params['show_plot']}")
+                print(f"       file_name={cv_file_name}")
+                print("[INFO] Executing CV test...")
+                df, data = run_cyclic_voltammetry(potentiostat_id=3, i_range=cv_params["i_range"], start_potential=cv_params["start_potential"], potential_vertex=cv_params["potential_vertex"], scan_rate=cv_params["scan_rate"], cycles=cv_params["cycles"], increment=cv_params["increment"], show_plot=cv_params["show_plot"], file_name=cv_file_name)
+                V = df["Potential"].values
+                I = df["Current"].values
+                C = df["Cycle"].values
+                print("[INFO] CV test done.")
+                break
+
+            except Exception as e:
+                print(f"[ERROR] CV test failed: {e}")
+                print("[INFO] The current configuration will be used as reference for the next attempt.")
     #print(photograph_electrode(electrode_number=1, file_name=paths["imgs"] / "electrode_after.png"))
     execute_routine_echem("cv_end_position.json")
     execute_routine_echem("idle.json")
@@ -985,6 +1074,7 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     ph_toledo_meter.press_read_button();time.sleep(3)
     msg = ph_toledo_meter.read_ph();time.sleep(2)
     ph_after = msg['pH']
+    temp_after =msg['temperature_C']
     print(F"[INFO] Measurement done: {ph_after}") 
     execute_routine_arm(F"measure_ph_in_rack_{echem_slot}_out.json")
     print("[INFO] Washing ph probe.") 
@@ -992,13 +1082,7 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     print("[INFO] Returning ph probe") 
     execute_routine_arm("place_ph_probe.json")
     execute_routine_echem("idle.json")
-    #############################################
-    # Photo of electrode after the test TODO
-    #############################################
     home_echem()
-    #############################################
-    #AI GENERATES REPORT TODO
-    #############################################
     #############################################
     # Homing system
     #############################################
@@ -1007,7 +1091,7 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
     execute_routine_arm("place_rack_in_bottom_carousel.json")
     ##############################################
-    #POLISHING? YES POLISH no? continue TODO
+    #POLISHING? YES POLISH no? continue 
     ##############################################
     while True:
         answer=input(f'[WARNING] Polihs electrode {echem_slot} (y/n)')
@@ -1021,9 +1105,9 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
             break
     print("[INFO] Workflow finished, homing arm.")
     home_arm()
-    return I, V, ph_before, ph_after
-####json logic
-####
+    weights= [weight_salt, weight_analyte]
+    return V, I, C, ph_before, ph_after, weights, temp_before, temp_after
+
 def select_json(experiments_path):
     """Let the user select an experiment JSON if none was provided."""
     try:
@@ -1132,8 +1216,6 @@ def load_experiment():
     logger.info("Workflow directory ready: %s", paths["workflow"])
     logger.info("Workflow setup complete.")
     return experiment, paths
-
-
     # Find the workflow/results directory for this experiment.
     # Load all available experimental data.
     # Check which expected data is available and which is missing.
@@ -1146,6 +1228,7 @@ def load_experiment():
     # Convert the report JSON into report.pdf.
     # Save report.pdf in the results/name_of_experiment/ directory.
     # Return the report.
+
 def generate_report(input_data={}, results_data={}, paths=None, model="mini"):
     # 1. AI Analysis & raw report structure generation
     report_data = analise_data_with_AI(
@@ -1306,6 +1389,10 @@ def analise_data_with_AI(
         missing_data.append("Initial pH measurement (ph_before)")
     if ph_data.get("ph_after") is None:
         missing_data.append("Final pH measurement (ph_after)")
+    if ph_data.get("temp_before_C") is None:
+            missing_data.append("Initial temperture measurement (temp_before_C)")
+    if ph_data.get("temp_after_C") is None:
+            missing_data.append("Final temperature measurement (temp_after_C)")
 
     image_paths = results_data.get("images", {})
     for img_key in ["electrode_before", "electrode_after", "CV"]:
@@ -1322,30 +1409,283 @@ def analise_data_with_AI(
     )
 
     # Build the multi-modal text + image payload for the model
+#    user_content = [
+#        {
+#            "type": "text",
+#            "text": f"""
+#Experiment Context & Configuration:
+#{json.dumps(input_data, indent=2)}
+#
+#Experimental Results:
+#{json.dumps(results_data, indent=2, default=str)}
+#
+#Missing Data Identified:
+#{json.dumps(missing_data, indent=2)}
+
+#Instructions:
+#1. Provide a rigorous scientific analysis based on all provided data and attached images.
+#2. In the electrode analysis section, explicitly refer to visual features visible in electrode_before and electrode_after images (if available).
+#3. In the CV analysis section, evaluate the attached CV plot (if available) along with raw curve data.
+#4. List all missing items in the missing_data array. Do NOT allow missing data to be interpreted as a failed result.
+#5. Output strict JSON with key sections: report_metadata, experiment_summary, experimental_setup, 
+#   sample_preparation, cv_parameters, results, analysis, execution, missing_data, conclusions, recommendations, limitations, data_quality, test_data.
+#""",
+#        }
+#    ]
     user_content = [
         {
             "type": "text",
             "text": f"""
-Experiment Context & Configuration:
-{json.dumps(input_data, indent=2)}
+    You are an AI scientific analyst generating a structured report for an electrochemical experiment.
 
-Experimental Results:
-{json.dumps(results_data, indent=2, default=str)}
+    You must analyze ALL provided experimental data and attached images.
 
-Missing Data Identified:
-{json.dumps(missing_data, indent=2)}
+    ==================================================
+    EXPERIMENT CONTEXT & CONFIGURATION
+    ==================================================
 
-Instructions:
-1. Provide a rigorous scientific analysis based on all provided data and attached images.
-2. In the electrode analysis section, explicitly refer to visual features visible in electrode_before and electrode_after images (if available).
-3. In the CV analysis section, evaluate the attached CV plot (if available) along with raw curve data.
-4. List all missing items in the missing_data array. Do NOT allow missing data to be interpreted as a failed result.
-5. Output strict JSON with key sections: report_metadata, experiment_summary, experimental_setup, 
-   sample_preparation, cv_parameters, results, analysis, execution, missing_data, conclusions, recommendations, limitations, data_quality, test_data.
-""",
+    {json.dumps(input_data, indent=2, default=str)}
+
+    ==================================================
+    EXPERIMENTAL RESULTS
+    ==================================================
+
+    {json.dumps(results_data, indent=2, default=str)}
+
+    ==================================================
+    MISSING DATA IDENTIFIED
+    ==================================================
+
+    {json.dumps(missing_data, indent=2, default=str)}
+
+    ==================================================
+    REPORT GENERATION INSTRUCTIONS
+    ==================================================
+
+    IMPORTANT:
+
+    1. Return ONLY valid JSON.
+    - Do NOT return Markdown.
+    - Do NOT use ```json code fences.
+    - Do NOT include explanations before or after the JSON.
+    - The entire response must be a single valid JSON object.
+
+    2. You MUST use EXACTLY these top-level keys:
+
+    report_metadata
+    experiment_summary
+    experimental_setup
+    sample_preparation
+    cv_parameters
+    results
+    analysis
+    execution
+    missing_data
+    conclusions
+    recommendations
+    limitations
+    data_quality
+    test_data
+
+    3. Do NOT rename these keys.
+    4. Do NOT remove these keys.
+    5. Do NOT add additional top-level keys.
+    6. If information is unavailable, use null, "", [], or {{}} as appropriate.
+    7. NEVER invent experimental measurements or observations.
+
+    ==================================================
+    REQUIRED REPORT STRUCTURE
+    ==================================================
+
+    The JSON MUST follow this structure:
+
+    {{
+        "report_metadata": {{
+            "experiment_name": null,
+            "experimenter": null,
+            "status": null
+        }},
+
+        "experiment_summary": {{
+            "description": null,
+            "mode": null
+        }},
+
+        "experimental_setup": {{
+            "working_electrode": null,
+            "counter_electrode": null,
+            "reference_electrode": null
+        }},
+
+        "sample_preparation": {{
+            "final_volume_ml": null,
+            "solids": [],
+            "liquids": []
+        }},
+
+        "cv_parameters": {{}},
+
+        "results": {{
+            "cv": {{}},
+            "ph": {{}},
+            "electrode": {{
+                "status": null
+            }}
+        }},
+
+        "analysis": {{
+            "cv_interpretation": null,
+            "ph_interpretation": null,
+            "electrode_interpretation": null,
+            "overall_interpretation": null
+        }},
+
+        "execution": {{
+            "errors": [],
+            "warnings": []
+        }},
+
+        "missing_data": [],
+
+        "conclusions": [],
+
+        "recommendations": [],
+
+        "limitations": [],
+
+        "data_quality": {{
+            "rating": null
+        }},
+
+        "test_data": {{
+            "used": false,
+            "items": []
+        }}
+    }}
+
+    ==================================================
+    FIELD-SPECIFIC REQUIREMENTS
+    ==================================================
+
+    report_metadata:
+    - experiment_name: use the experiment name from the supplied metadata when available.
+    - experimenter: use the supplied experimenter when available.
+    - status: describe the actual completion state.
+    - Do not mark the experiment as failed merely because data is missing.
+
+    experiment_summary:
+    - description: provide a concise scientific description of the experiment.
+    - mode: report the supplied experimental mode.
+
+    experimental_setup:
+    - working_electrode: identify the working electrode from the supplied data.
+    - counter_electrode: identify the counter electrode.
+    - reference_electrode: identify the reference electrode.
+    - Do not invent electrode types.
+
+    sample_preparation:
+    - Report the supplied final volume, solids, and liquids.
+    - Preserve the supplied information.
+    - Do not invent concentrations, quantities, or materials.
+
+    cv_parameters:
+    - Preserve and report the supplied CV parameters.
+    - Do not invent scan rate, potential limits, electrode area, concentration, cycles, or other parameters.
+
+    results:
+    - cv: include relevant CV/raw curve data supplied in the experimental results.
+    - ph: include available pH measurements.
+    - temp: include available temperature measurements
+    - dispensed_masses: include available dispensed masses.
+    - electrode: summarize the available electrode observations/images.
+    - Preserve raw numerical data where appropriate.
+
+    analysis:
+    - cv_interpretation:
+    Analyze the actual supplied CV data.
+    If a CV plot/image is attached, evaluate the visible plot together with the raw curve data.
+    Discuss relevant peaks, onset peak, peak potentials, current response, reversibility/irreversibility,
+    baseline behavior, hysteresis, and other scientifically justified features where applicable.
+    Do NOT assume a peak exists if it is not supported by the data.
+
+    - ph_interpretation:
+    Analyze the supplied pH measurements.
+    If measurements are unavailable, explicitly state that they are unavailable.
+
+    - electrode_interpretation:
+    If electrode_before and/or electrode_after images are available, explicitly describe
+    visible features in those images.
+    Where both images are available, compare before and after appearance.
+    Only describe features that can actually be observed.
+    Do NOT invent visual observations.
+
+    - overall_interpretation:
+    Provide an integrated scientific interpretation based only on the available evidence.
+
+    execution:
+    - errors: list actual errors encountered or observed.
+    - warnings: list relevant warnings, including important missing data.
+
+    missing_data:
+    - MUST contain every item from the supplied missing_data array.
+    - Do NOT omit missing items.
+    - Missing data must NEVER be interpreted as evidence of experimental failure.
+    - Treat missing data as a limitation of the available evidence.
+
+    conclusions:
+    - Provide scientifically supported conclusions.
+    - Conclusions must be based only on supplied experimental evidence.
+    - Do not invent results.
+
+    recommendations:
+    - Provide reasonable scientific recommendations for follow-up measurements,
+    experiments, controls, or data collection.
+    - Recommendations should address important limitations or missing information.
+
+    limitations:
+    - Identify limitations caused by missing, incomplete, simulated, or low-quality data.
+    - Clearly distinguish limitations from experimental failure.
+
+    data_quality:
+    - rating should reflect the completeness and reliability of the supplied data.
+    - Use an appropriate qualitative value such as:
+    "Good", "Fair", or "Poor".
+    - Do not rate the data as "Good" when important experimental information is missing.
+
+    test_data:
+    - used: indicate whether simulated/test data was used.
+    - items: list relevant simulated, test, or non-experimental data items.
+
+    ==================================================
+    SCIENTIFIC RULES
+    ==================================================
+
+    1. Do not fabricate data.
+    2. Do not fabricate observations from images.
+    3. Do not fabricate CV peaks or electrochemical behavior.
+    4. Do not fabricate pH values.
+    5. Do not fabricate electrode properties.
+    6. Clearly distinguish measured data from interpretation.
+    7. Clearly distinguish visual observations from scientific interpretation.
+    8. Missing data is NOT equivalent to experimental failure.
+    9. If data is unavailable, explicitly state that it is unavailable.
+    10. Use the attached images as evidence when they are available.
+    11. Use raw numerical data as evidence whenever available.
+    12. Ensure all conclusions are consistent with the supplied results.
+    13. Ensure every item in missing_data is preserved in the final report.
+
+    ==================================================
+    FINAL OUTPUT REQUIREMENT
+    ==================================================
+
+    Return ONLY the JSON object matching the exact structure above.
+
+    Do not add any additional keys at the top level.
+    Do not add Markdown.
+    Do not add commentary.
+    """
         }
     ]
-
     # Attach existing images into user_content as base64 URLs
     if image_paths:
         for img_label, img_path in image_paths.items():
@@ -1673,25 +2013,35 @@ def json_to_pdf(report_data, output_pdf_path, input_data=None, image_paths=None)
     meta = report_data.get("report_metadata", {})
     input_meta = input_data.get("metadata", {})
     setup = report_data.get("experimental_setup", {})
-    cell = setup.get("electrochemical_cell", {})
     params = report_data.get("cv_parameters", {})
+    #cell = params.get("electrochemical_cell", {})
     input_params = input_data.get("cv_parameters", {})
     reasoning = input_data.get("llm_reasoning", {})
     sample_prep = report_data.get("sample_preparation", {})
 
-    we = cell.get("working_electrode") or setup.get("working_electrode") or input_params.get("working_electrode_type")
-    ce = cell.get("counter_electrode") or setup.get("counter_electrode") or input_params.get("counter_electrode_type")
-    re = cell.get("reference_electrode") or setup.get("reference_electrode") or input_params.get("reference_electrode")
+    we = input_params.get("working_electrode") or input_params.get("working_electrode_type")
+    ce = input_params.get("counter_electrode") or input_params.get("counter_electrode_type")
+    re = input_params.get("reference_electrode") or input_params.get("reference_electrode_type")
+
+    ph_temp_measurements= report_data.get("ph_measurements")
+    temp_before = ph_temp_measurements.get("temp_before_C")
+    temp_after = ph_temp_measurements.get("temp_after_C")
+    masses = report_data.get("dispensed_masses")
+    salt_mass = masses.get("salt", 0)
+    analyte_mass = masses.get("analyte", 0)
     
-    #pot_window = (
-    #    params.get("potential_window_V_vs_AgAgCl") 
-    #    or params.get("potential_window_V_vs_Ag_AgCl") 
-    #    or input_params.get("potential_window")
-    #)
-    pot_window = [params.get("start_potential_v"), params.get("potential_vertex_v")]
-    
-    scan_rate = params.get("scan_rate_mV_s") or input_params.get("scan_rate_mv_s")
-    step_size = params.get("increment_V") or input_params.get("increment_v")
+    pot_window = [input_params.get("start_potential_v"), input_params.get("potential_vertex_v")]
+
+    print(input_params)
+    input()
+    print(pot_window)
+    input()
+    print(we)
+    print(ce)
+    print(re)
+    input()
+    scan_rate = input_params.get("scan_rate_mV_s") or input_params.get("scan_rate_mv_s")
+    step_size = input_params.get("increment_V") or input_params.get("increment_v")
     cycles = params.get("reported_cycles") or params.get("cycles") or input_params.get("cycles")
     polishing = params.get("working_electrode_polished") if "working_electrode_polished" in params else input_params.get("polishing")
     
@@ -1706,16 +2056,12 @@ def json_to_pdf(report_data, output_pdf_path, input_data=None, image_paths=None)
     date_val = meta.get("report_generated_date") or meta.get("analysis_date") or "N/A"
 
     story.append(
-        Paragraph(
-            f"<b>Experimenter:</b> {experimenter} | <b>Mode:</b> {exp_mode} | <b>Date:</b> {date_val}",
-            body_style,
-        )
-    )
+    Paragraph(f"<b>Experimenter:</b> {experimenter} | <b>Mode:</b> {exp_mode} | <b>Date:</b> {date_val}", body_style,))
     story.append(Spacer(1, 6))
 
     # 2. Executive Summary
     summary = report_data.get("experiment_summary", {})
-    story.append(Paragraph("1. Executive Summary", h2_style))
+    story.append(Paragraph("1. Summary", h2_style))
     story.append(Paragraph(f"<b>User Request:</b> <i>{user_prompt}</i>", body_style))
     story.append(Spacer(1, 2))
 
@@ -1732,11 +2078,13 @@ def json_to_pdf(report_data, output_pdf_path, input_data=None, image_paths=None)
     # 3. Setup & CV Parameters Table
     story.append(Paragraph("2. Experimental Setup & CV Parameters", h2_style))
     table_data = [
-        ["Working Electrode", format_val(we), "Scan Rate", f"{format_val(scan_rate)} V/s"],
-        ["Counter Electrode", format_val(ce), "Step Size", f"{format_val(step_size)} V"],
-        ["Reference Electrode", format_val(re), "Cycles", format_val(cycles)],
-        ["Potential Window", format_val(pot_window), "Polishing", format_val(polishing)],
-        ["Final Volume", f"{setup.get('electrolyte_and_analyte', {}).get('nominal_final_volume_mL', 10.0)} mL", "Purge Enabled", f"{setup.get('pre_measurement_treatment', {}).get('purge_enabled', True)}"],
+        ["Working Electrode", F"{we}", "Scan Rate", f"{scan_rate} V/s"],
+        ["Counter Electrode", F"{ce}", "Step Size", f"{step_size} V"],
+        ["Reference Electrode", F"{re}", "Cycles", f"{cycles}"],
+        ["Potential Window", f"{pot_window[0]} V ->{pot_window[1]} V", "Polishing", format_val(polishing)],
+        ["Final Volume", f"{setup.get('electrolyte_and_analyte', {}).get('nominal_final_volume_mL', 15.0)} mL", "Purge Enabled", f"{setup.get('pre_measurement_treatment', {}).get('purge_enabled', True)}"],
+        ["Dispensed salt", f"{salt_mass} mg", "Dispensed analyte", f"{analyte_mass} mg"],
+        ["Temperature before CV", f"{temp_before} C", "Temperature after CV", f"{temp_after} C"]
     ]
     t = Table(table_data, colWidths=[130, 140, 130, 140])
     t.setStyle(
@@ -1942,6 +2290,28 @@ def photograph_electrode(electrode_number=1, file_name=""):
 if __name__ == "__main__":
     # 1. Initialize workflow paths and load user script
     experiment, paths = load_experiment()
+    #with open(paths["data"] / "cv_raw.json", "r", encoding="utf-8") as f:
+    #    cv_data= json.load(f)
+        #cv_data["potential_V"], cv_data["current_uA"] = cv_data["current_uA"], cv_data["potential_V"] 
+    #with open(paths["data"] / "ph_measurements.json", "r", encoding="utf-8") as f:
+    #    ph_data = json.load(f)   
+    #print("[INFO] Generating final report...")
+    #results_data = {
+    #            "cv_raw": cv_data,
+    #            "ph_measurements": ph_data,
+    #            "images": {
+    #                "electrode_before": paths["imgs"] / "electrode_before.png",
+    #                "electrode_after": paths["imgs"] / "electrode_after.png",
+    #                "CV": paths["imgs"] / "CV.png",
+    #            },
+    #            "is_simulated": False,
+    #        }
+    #I= cv_data["potential_V"]
+    #V= cv_data["current_uA"]   
+    #report = generate_report(
+    #            input_data=experiment, results_data=results_data, paths=paths, model="terra")    
+    #print("[SUCCESS] Workflow execution and report generation complete.")
+    #sys.exit()
     #"cv_parameters": {
     #"potentiostat_id": 1,
     #"i_range": "MICROAMPS200",
@@ -1956,126 +2326,131 @@ if __name__ == "__main__":
     #"polishing": true,
     #"polishing_cycles": 0
     #},
-    cv_params={
-        "potentiostat_id":3,
-        "i_range":I_range_mode[experiment["cv_parameters"]["i_range"]],
-        "start_potential":experiment["cv_parameters"]["start_potential_v"],
-        "potential_vertex":experiment["cv_parameters"]["potential_vertex_v"],
-        "scan_rate":experiment["cv_parameters"]["scan_rate_mv_s"],
-        "cycles":experiment["cv_parameters"]["cycles"],
-        "increment":experiment["cv_parameters"]["increment_v"],
-        "show_plot":True,
-    }
-    #print(cv_params)
-    #bottom_carousel.turn_pumps_on();time.sleep(10)
-    #bottom_carousel.turn_pumps_off()
-    #sys.exit()
-    # 1.1 Execute 
+    if experiment["experiment_mode"] == "analyte_in_electrolyte":
+        cv_params={
+            "potentiostat_id":3,
+            "i_range":I_range_mode[experiment["cv_parameters"]["i_range"]],
+            "start_potential":experiment["cv_parameters"]["start_potential_v"],
+            "potential_vertex":experiment["cv_parameters"]["potential_vertex_v"],
+            "scan_rate":experiment["cv_parameters"]["scan_rate_mv_s"],
+            "cycles":experiment["cv_parameters"]["cycles"],
+            "increment":experiment["cv_parameters"]["increment_v"],
+            "show_plot":True,}
+        #print(cv_params)
+        #bottom_carousel.turn_pumps_on();time.sleep(10)
+        #bottom_carousel.turn_pumps_off()
+        #sys.exit()
+        # 1.1 Execute 
 
-    #    "solids": [
-    #  {
-    #    "cartridge_position": 1,
-    #    "mass_mg": 149.1,
-    #    "molecular_weight_g_mol": 74.5513,
-    #    "name": "Potassium chloride",
-    #    "requested_concentration_mol_L": 0.1,
-    #    "role": "salt"
-    #  },
-    #  {
-    #    "cartridge_position": 2,
-    #    "mass_mg": 5.26,
-    #    "molecular_weight_g_mol": 176.12,
-    #    "name": "Vitamin C (ascorbic acid)",
-    #    "requested_concentration_mol_L": 0.005,
-    #    "role": "analyte"
-    #  }
-    #solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analite"]}, 
-    #liquids={1:["Water",10, "Solvent"]},
-    #liquids_dispenser.status()
-    #sys.exit()
-    solids= {}
-    for solid in experiment['recipe']['solids']:
-        solids[solid['cartridge_position']]= [solid['name'],solid['mass_mg'],solid["role"]]
-    print(solids)
-    liquids = {}
-    for liquid in experiment['recipe']['liquids']:
-        liquids[liquid['channel']]= [liquid['name'],liquid['volume_ml'],"solvent"]
-    print(liquids) 
-    #sys.exit()
-    #
-    #prepare_sample(solids=solids,
-    #               liquids=liquids,
-    #               experiment={
-    #    solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1},
-    #    solids[2][2]: {'sample_id':solids[2],'cartridge_pos':2}
-    #})
-    #input("Continue?")
-    home_echem()
-    print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
-    V, I, ph_before, ph_after = analise_sample(echem_slot=2,cv_file_name=paths["imgs"] / "CV.png",cv_params=cv_params)
-    #input("continue?")
-    ###########################################
-    #CV Test logic SIMULATION
-    ###########################################
-    #try:
-    #    print("[INFO]  Executing CV test...")
-    #    df, data = run_cyclic_voltammetry(
-    #        potentiostat_id=3,
-    #        i_range=cv_params["i_range"],
-    #        start_potential=cv_params["start_potential"],
-    #        potential_vertex=cv_params["potential_vertex"],
-    #        scan_rate=cv_params["scan_rate"],
-    #        cycles=3,
-    #        increment=cv_params["increment"],
-    #        show_plot=cv_params["show_plot"],
-    #        file_name=paths["imgs"] / "CV.png")
-    #    V = df["Potential"].values
-    #    I = df["Current"].values
-    #    print("[INFO] CV test done.") 
-    #except Exception as e:
-    #        print(F"[Error] not possible to connect with potentiostats: {e}")
-    print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
-    home_echem()
-    # 2. Mock results execution (Simulated Data for pipeline verification)
-    #input("continue?")
-    print("[INFO] Simulating experiment execution...")
-    # Mock CV data
-    cv_data = {
-        "potential_V": V.tolist(),
-        "current_uA": I.tolist(),
-        "cycles": 3,
-        "is_simulated": False,
-    }
-    print(cv_data)
-    with open(paths["data"] / "cv_raw.json", "w", encoding="utf-8") as f:
-        json.dump(cv_data, f, indent=2)
+        #    "solids": [
+        #  {
+        #    "cartridge_position": 1,
+        #    "mass_mg": 149.1,
+        #    "molecular_weight_g_mol": 74.5513,
+        #    "name": "Potassium chloride",
+        #    "requested_concentration_mol_L": 0.1,
+        #    "role": "salt"
+        #  },
+        #  {
+        #    "cartridge_position": 2,
+        #    "mass_mg": 5.26,
+        #    "molecular_weight_g_mol": 176.12,
+        #    "name": "Vitamin C (ascorbic acid)",
+        #    "requested_concentration_mol_L": 0.005,
+        #    "role": "analyte"
+        #  }
+        #solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analite"]}, 
+        #liquids={1:["Water",10, "Solvent"]},
+        #liquids_dispenser.status()
+        #sys.exit()
+        solids= {}
+        for solid in experiment['recipe']['solids']:
+            solids[solid['cartridge_position']]= [solid['name'],solid['mass_mg'],solid["role"]]
+        print(solids)
+        liquids = {}
+        for liquid in experiment['recipe']['liquids']:
+            liquids[liquid['channel']]= [liquid['name'],liquid['volume_ml'],"solvent"]
+        print(liquids) 
+        #sys.exit()
+        #
+        prepare_sample(solids=solids,
+                    liquids=liquids,
+                    experiment={
+            solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1},
+            solids[2][2]: {'sample_id':solids[2],'cartridge_pos':2}
+        })
+        input("Continue?")
+        home_echem()
+        print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
+        V, I ,C, ph_before, ph_after, weights, temp_before, temp_after = analise_sample(echem_slot=2,cv_file_name=paths["imgs"] / "CV.png",cv_params=cv_params)
+        #input("continue?")
+        ###########################################
+        #CV Test logic SIMULATION
+        ###########################################
+        #try:
+        #    print("[INFO]  Executing CV test...")
+        #    df, data = run_cyclic_voltammetry(
+        #        potentiostat_id=3,
+        #        i_range=cv_params["i_range"],
+        #        start_potential=cv_params["start_potential"],
+        #        potential_vertex=cv_params["potential_vertex"],
+        #        scan_rate=cv_params["scan_rate"],
+        #        cycles=3,
+        #        increment=cv_params["increment"],
+        #        show_plot=cv_params["show_plot"],
+        #        file_name=paths["imgs"] / "CV.png")
+        #    V = df["Potential"].values
+        #    I = df["Current"].values
+        #    print("[INFO] CV test done.") 
+        #except Exception as e:
+        #        print(F"[Error] not possible to connect with potentiostats: {e}")
+        print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
+        home_echem()
+        # 2. Mock results execution (Simulated Data for pipeline verification)
+        #input("continue?")
+        print("[INFO] Simulating experiment execution...")
+        # Mock CV data
+        dispensed_masses ={"salt": weights[0],
+                            "analyte": weights[1]}
+        with open(paths["data"] / "dispensed_masses.json", "w", encoding="utf-8") as f:
+                    json.dump(dispensed_masses, f, indent=2)
+        cv_data = {
+            "potential_V": V.tolist(),
+            "current_uA": I.tolist(),
+            "cycle": C.tolist(),
+            "cycles": 3,
+            "is_simulated": False,
+        }
+        print(cv_data)
+        with open(paths["data"] / "cv_raw.json", "w", encoding="utf-8") as f:
+            json.dump(cv_data, f, indent=2)
 
-    # pH data
-    ph_before=7
-    ph_after=7
-    ph_data = {"ph_before": ph_before, "ph_after": ph_after, "is_simulated": False}
-    with open(paths["data"] / "ph_measurements.json", "w", encoding="utf-8") as f:
-        json.dump(ph_data, f, indent=2)
+        #ph_after=7
+        ph_data = {"ph_before": ph_before, "ph_after": ph_after, "is_simulated": False,
+                   "temp_before_C": temp_before, "temp_after_C": temp_after}
+        with open(paths["data"] / "ph_measurements.json", "w", encoding="utf-8") as f:
+            json.dump(ph_data, f, indent=2)
 
-    # Collect mock results directory references
-    results_data = {
-        "cv_raw": cv_data,
-        "ph_measurements": ph_data,
-        "images": {
-            "electrode_before": paths["imgs"] / "electrode_before.png",
-            "electrode_after": paths["imgs"] / "electrode_after.png",
-            "CV": paths["imgs"] / "CV.png",
-        },
-        "is_simulated": False,
-    }
+        # Collect mock results directory references
+        results_data = {
+            "cv_raw": cv_data,
+            "ph_measurements": ph_data,
+            "images": {
+                "electrode_before": paths["imgs"] / "electrode_before.png",
+                "electrode_after": paths["imgs"] / "electrode_after.png",
+                "CV": paths["imgs"] / "CV.png",
+            },
+            "dispensed_masses": dispensed_masses,
+            "is_simulated": False,
+        }
+        
+        # 3. Generate Report
+        print("[INFO] Generating final report...")
+        report = generate_report(
+            input_data=experiment, results_data=results_data, paths=paths, model="terra"
+        )
 
-    # 3. Generate Report
-    print("[INFO] Generating final report...")
-    report = generate_report(
-        input_data=experiment, results_data=results_data, paths=paths, model="terra"
-    )
-
-    print("[SUCCESS] Workflow execution and report generation complete.")
+        print("[SUCCESS] Workflow execution and report generation complete.")
 
 
     

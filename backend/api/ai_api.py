@@ -41,10 +41,10 @@ def _validate_experiment(experiment):
     # ========================================================
     # EXPERIMENT MODE
     # ========================================================
-    allowed_modes = ["analite_in_electrolite", "analite_on_working_electrode"]
+    allowed_modes = ["analyte_in_electrolyte", "analyte_on_working_electrode"]
     mode = experiment.get("experiment_mode")
     if mode not in allowed_modes:
-        errors.append("experiment_mode must be either 'analite_in_electrolite' or 'analite_on_working_electrode'.")
+        errors.append("experiment_mode must be either 'analyte_in_electrolyte' or 'analyte_on_working_electrode'.")
     # ========================================================
     # METADATA
     #========================================================
@@ -208,8 +208,8 @@ def _validate_experiment(experiment):
             final_volume = float(final_volume)
             if final_volume <= 0:
                 errors.append("final_volume_ml must be greater than 0.")
-            elif final_volume > 10:
-                errors.append("final_volume_ml cannot exceed 10 mL.")
+            elif final_volume > 15:
+                errors.append("final_volume_ml cannot exceed 15 mL.")
         except (TypeError, ValueError):
             errors.append("final_volume_ml must be a number.")
     # ========================================================
