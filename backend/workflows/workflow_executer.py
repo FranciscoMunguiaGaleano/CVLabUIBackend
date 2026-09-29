@@ -19,6 +19,7 @@ import argparse
 import logging
 import shutil
 import base64
+from datetime import date
 
 
 
@@ -41,6 +42,7 @@ ECHEM_ROUTINES_PATH = BASE_PATH / "data" / "routines" / "echem"
 #ECHEM_ROUTINES_PATH = Path(os.getcwd()+"/../data/routines/echem")
 
 I_range_mode={
+    "AUTO": 0,
     "MILLIAMPS200" : 1,
     "MILLIAMPS20" : 2,
     "MICROAMPS2000" : 3,
@@ -639,7 +641,7 @@ def polish_electrode(electrode_id=1, passes = 10):
     print(F"[INFO] Polishing electrode {electrode_id} for {passes} passes.")
     E_OFFS = {
             1:[0,0,20],
-            2:[50,0,20],
+            2:[50,0,48],
             3:[100,0,49.5]
         }
     x_offset=E_OFFS[electrode_id][0]
@@ -720,12 +722,9 @@ def fill_washing_vials(carousel_slot=1):
     print(F"[INFO] Filling vials of carousel slot {carousel_slot}")
     bottom_carousel.move_absolute(str(9));time.sleep(20)
     print("[INFO] Filling washing vials")
-    bottom_carousel.turn_pumps_on();time.sleep(20)
+    bottom_carousel.turn_pumps_on();time.sleep(22)
     bottom_carousel.turn_pumps_off()
     bottom_carousel.move_absolute(str(carousel_slot));time.sleep(0)
-
-def photograph_electrode(electrode_id=1):
-    return
 
 def prime_lines(source_port=1):
     return
@@ -881,10 +880,12 @@ def prepare_sample(
     execute_routine_arm("place_vial_in_bottom_carousel.json")
     execute_routine_arm("idle.json")
     home_arm()
+    weights= [weight_salt, weight_analyte]
+    return weights
 
 def analise_sample(echem_slot=2, cv_file_name="", mixing = True, 
                    cv_params={
-                       "potentiostat_id":3,
+                       "potentiostat_id":1,
                        "i_range":5,
                         "start_potential":0,
                         "potential_vertex":1,
@@ -905,17 +906,10 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     execute_routine_arm("pick_rack_from_bottom_carousel.json")
     execute_routine_arm(F"place_rack_in_{echem_slot}.json")
     ########################################
-    # mixing
+    # Mixing
     ########################################
-    if mixing_params=='stirrer':
+    if mixing_params["mixing_type"]=='stirrer':
         stirr_samples(cycles=int(mixing_params['mixing_time_s']/2.5)) #each cycle takes 2.5 secs
-    #input("Stop stirring")
-    #sys.exit()
-    #########################################
-    # Degassing samples before Ph measurement
-    ########################################
-    # home_echem()
-    # execute_routine_echem("idle.json")
     ########################################
     # Measuring Ph
     ########################################
@@ -950,8 +944,10 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     execute_routine_echem("wash_electrodes_out.json")
     execute_routine_echem("ph_measurement.json")
     print("[INFO] Drying electrodes") 
-    echem.dryer_on();time.sleep(30)
+    echem.dryer_on();time.sleep(10)
     echem.dryer_off();time.sleep(0.1)
+    execute_routine_echem("idle.json")
+    home_echem()
     execute_routine_echem("idle.json")
     ###########################################
     #PHOTO BEFORE EXPERIMENT OF ELECTRODES 
@@ -962,24 +958,6 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     ###########################################
     #CV Test logic
     ###########################################
-    #try:
-    #    print("[INFO]  Executing CV test...")
-    #    df, data = run_cyclic_voltammetry(
-    #        potentiostat_id=3,
-    #        i_range=cv_params["i_range"],
-    #        start_potential=cv_params["start_potential"],
-    #        potential_vertex=cv_params["potential_vertex"],
-    #        scan_rate=cv_params["scan_rate"],
-    #        cycles=cv_params["cycles"],
-    #        increment=cv_params["increment"],
-    #        show_plot=cv_params["show_plot"],
-    #        file_name=cv_file_name)
-    #    V = df["Potential"].values
-    #    I = df["Current"].values
-    #    C = df["Cycle"].values
-    #    print("[INFO] CV test done.") 
-    #except Exception as e:
-    #        print(F"[Error] not possible to connect with potentiostats: {e}")
     try:
         print("[INFO] Executing CV test...")
         df, data = run_cyclic_voltammetry(potentiostat_id=3, 
@@ -995,7 +973,6 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
         I = df["Current"].values
         C = df["Cycle"].values
         print("[INFO] CV test done.")
-
     except Exception as e:
         print(f"[ERROR] Not possible to connect with potentiostat: {e}")
         print("\n[INFO] Original CV configuration:")
@@ -1028,11 +1005,6 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
                 #cv_params["scan_rate"] = float(input(f"scan_rate [{cv_params['scan_rate']}]: ") or cv_params["scan_rate"])
                 #cv_params["cycles"] = int(input(f"cycles [{cv_params['cycles']}]: ") or cv_params["cycles"])
                 #cv_params["increment"] = float(input(f"increment [{cv_params['increment']}]: ") or cv_params["increment"])
-
-                #show_plot = input(f"show_plot (Y/N) [{'Y' if cv_params['show_plot'] else 'N'}]: ").strip().upper()
-                #if show_plot:
-                #    cv_params["show_plot"] = show_plot == "Y"
-
                 file_name = input(f"file_name [{cv_file_name}]: ").strip()
                 if file_name:
                     cv_file_name = file_name
@@ -1057,7 +1029,7 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
             except Exception as e:
                 print(f"[ERROR] CV test failed: {e}")
                 print("[INFO] The current configuration will be used as reference for the next attempt.")
-    #print(photograph_electrode(electrode_number=1, file_name=paths["imgs"] / "electrode_after.png"))
+
     execute_routine_echem("cv_end_position.json")
     execute_routine_echem("idle.json")
     home_echem()
@@ -1066,6 +1038,8 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     #############################################
     print("[INFO] Setting ph measurement.") 
     execute_routine_echem("ph_measurement.json")
+    echem.dryer_on();time.sleep(10)
+    echem.dryer_off();time.sleep(0.1)
     print("[INFO] Picking ph Probe") 
     execute_routine_arm("pick_ph_probe.json")
     print(F"[INFO] Measuring ph in rack {echem_slot}") 
@@ -1083,30 +1057,7 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     execute_routine_arm("place_ph_probe.json")
     execute_routine_echem("idle.json")
     home_echem()
-    #############################################
-    # Homing system
-    #############################################
-    print("[INFO] Returning rack to carousel.")
-    execute_routine_arm("idle.json")
-    execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
-    execute_routine_arm("place_rack_in_bottom_carousel.json")
-    ##############################################
-    #POLISHING? YES POLISH no? continue 
-    ##############################################
-    while True:
-        answer=input(f'[WARNING] Polihs electrode {echem_slot} (y/n)')
-        if answer == 'y' or answer == 'Y':
-            print(F"[INFO] Polishing electrode {echem_slot} ")
-            polish_electrode(electrode_id=3,passes=3)
-            #washing and drying routine again
-            break
-        elif answer == 'n' or answer == 'N':
-            print(F"[WARNING] Electrode {echem_slot} not polished.")
-            break
-    print("[INFO] Workflow finished, homing arm.")
-    home_arm()
-    weights= [weight_salt, weight_analyte]
-    return V, I, C, ph_before, ph_after, weights, temp_before, temp_after
+    return V, I, C, ph_before, ph_after, temp_before, temp_after
 
 def select_json(experiments_path):
     """Let the user select an experiment JSON if none was provided."""
@@ -1229,28 +1180,74 @@ def load_experiment():
     # Save report.pdf in the results/name_of_experiment/ directory.
     # Return the report.
 
-def generate_report(input_data={}, results_data={}, paths=None, model="mini"):
-    # 1. AI Analysis & raw report structure generation
+
+def report_from_json(
+    input_data={},
+    results_data={},
+    paths=None,
+    model="terra",
+    report_data={},
+):
+    # Render PDF using report data, input configuration,
+    # actual results, and image paths
+    if paths and "report" in paths:
+
+        image_paths = results_data.get(
+            "image_paths",
+            results_data.get("images", {}),
+        )
+
+        json_to_pdf(
+            report_data=report_data,
+            output_pdf_path=paths["report"],
+            input_data=input_data,
+            results_data=results_data,
+            image_paths=image_paths,
+        )
+
+def generate_report(
+    input_data=None,
+    results_data=None,
+    paths=None,
+    model="terra",
+):
+    """
+    Generate the LLM report and then render it to PDF.
+
+    Flow:
+        input_data
+            ↓
+        analise_data_with_AI()
+            ↓
+        report_data
+            ↓
+        json_to_pdf()
+    """
+    input_data = input_data or {}
+    results_data = results_data or {}
+    # 1. AI analysis & raw report structure generation
     report_data = analise_data_with_AI(
         input_data=input_data,
         results_data=results_data,
         paths=paths,
         model=model,
     )
-
-    # 2. Render PDF passing both report_data and the input_data configuration
+    # 2. Render PDF
     if paths and "report" in paths:
         image_paths = results_data.get(
-            "image_paths", results_data.get("images", {})
+            "image_paths",
+            results_data.get("images", {}),
         )
         json_to_pdf(
             report_data=report_data,
             output_pdf_path=paths["report"],
             input_data=input_data,
+            results_data=results_data,
             image_paths=image_paths,
         )
-
     return report_data
+
+
     # Collect all available experiment context:
     # - Original experiment JSON
     # - CV raw data
@@ -1313,7 +1310,7 @@ def generate_report(input_data={}, results_data={}, paths=None, model="mini"):
 
     # Save the AI analysis JSON to results/data/report_raw_data.json
     # Return the structured report data
-    return
+    #return
 
 
     # Convert the structured report JSON into a human-readable PDF.
@@ -1380,7 +1377,7 @@ def analise_data_with_AI(
     # Track missing measurements explicitly
     missing_data = []
     if not results_data.get("cv_raw") or not results_data["cv_raw"].get(
-        "current_uA"
+        "current_A"
     ):
         missing_data.append("Cyclic Voltammetry raw curve measurements")
 
@@ -1432,6 +1429,7 @@ def analise_data_with_AI(
 #""",
 #        }
 #    ]
+
     user_content = [
         {
             "type": "text",
@@ -1488,9 +1486,13 @@ def analise_data_with_AI(
     test_data
 
     3. Do NOT rename these keys.
+
     4. Do NOT remove these keys.
+
     5. Do NOT add additional top-level keys.
+
     6. If information is unavailable, use null, "", [], or {{}} as appropriate.
+
     7. NEVER invent experimental measurements or observations.
 
     ==================================================
@@ -1528,16 +1530,63 @@ def analise_data_with_AI(
         "results": {{
             "cv": {{}},
             "ph": {{}},
+            "temp": {{}},
+            "dispensed_masses": {{}},
             "electrode": {{
                 "status": null
             }}
         }},
 
         "analysis": {{
-            "cv_interpretation": null,
-            "ph_interpretation": null,
-            "electrode_interpretation": null,
-            "overall_interpretation": null
+            "cv_interpretation": "...",
+
+            "cv_analysis": {{
+                "peak_analysis": {{
+                    "anodic_peak": {{
+                        "potential_v": null,
+                        "current": null,
+                        "current_unit": null,
+                        "onset_potential_v": null,
+                        "confidence": null,
+                        "source": null
+                    }},
+
+                    "cathodic_peak": {{
+                        "potential_v": null,
+                        "current": null,
+                        "current_unit": null,
+                        "onset_potential_v": null,
+                        "confidence": null,
+                        "source": null
+                    }},
+
+                    "peak_separation": {{
+                        "delta_potential_v": null,
+                        "calculation": null
+                    }}
+                }},
+
+                "onset_analysis": {{
+                    "anodic_onset_potential_v": null,
+                    "cathodic_onset_potential_v": null,
+                    "onset_definition": null
+                }},
+
+                "current_analysis": {{
+                    "anodic_peak_current": null,
+                    "anodic_peak_current_unit": null,
+                    "cathodic_peak_current": null,
+                    "cathodic_peak_current_unit": null
+                }},
+
+                "raw_data_interpretation": null,
+                "electrochemical_assignment": null,
+                "reversibility_assessment": null
+            }},
+
+            "ph_interpretation": "...",
+            "electrode_interpretation": "...",
+            "overall_interpretation": "..."
         }},
 
         "execution": {{
@@ -1582,6 +1631,7 @@ def analise_data_with_AI(
     - counter_electrode: identify the counter electrode.
     - reference_electrode: identify the reference electrode.
     - Do not invent electrode types.
+    - If multiple conflicting values are supplied, prefer the value from the original experiment configuration/input data and mention the conflict in warnings or limitations.
 
     sample_preparation:
     - Report the supplied final volume, solids, and liquids.
@@ -1591,70 +1641,500 @@ def analise_data_with_AI(
     cv_parameters:
     - Preserve and report the supplied CV parameters.
     - Do not invent scan rate, potential limits, electrode area, concentration, cycles, or other parameters.
+    - Preserve the original units exactly where possible.
+    - Pay particular attention to potential units:
+    - JSON field names must use lowercase "_v" when representing volts.
+    - Example: "potential_v", "start_potential_v", "onset_potential_v".
+    - Unit values representing volts must use uppercase "V".
+    - Example: "unit": "V".
+    - Do not confuse mV with V.
+    - If scan rate is supplied in mV/s, preserve it as mV/s unless a conversion is explicitly required.
+    - Do not silently convert units when the source contains ambiguity.
 
     results:
     - cv: include relevant CV/raw curve data supplied in the experimental results.
     - ph: include available pH measurements.
-    - temp: include available temperature measurements
+    - temp: include available temperature measurements.
     - dispensed_masses: include available dispensed masses.
     - electrode: summarize the available electrode observations/images.
     - Preserve raw numerical data where appropriate.
+    - Do not replace actual measured/dispensed values with planned values.
+    - Clearly distinguish planned/requested values from actual/measured values when both are supplied.
+
+    ==================================================
+    CV ANALYSIS REQUIREMENTS
+    ==================================================
 
     analysis:
     - cv_interpretation:
+
     Analyze the actual supplied CV data.
-    If a CV plot/image is attached, evaluate the visible plot together with the raw curve data.
-    Discuss relevant peaks, onset peak, peak potentials, current response, reversibility/irreversibility,
-    baseline behavior, hysteresis, and other scientifically justified features where applicable.
-    Do NOT assume a peak exists if it is not supported by the data.
 
-    - ph_interpretation:
-    Analyze the supplied pH measurements.
-    If measurements are unavailable, explicitly state that they are unavailable.
+    You MUST explicitly search ALL relevant supplied sources for electrochemical quantities, including:
 
-    - electrode_interpretation:
-    If electrode_before and/or electrode_after images are available, explicitly describe
-    visible features in those images.
-    Where both images are available, compare before and after appearance.
-    Only describe features that can actually be observed.
-    Do NOT invent visual observations.
+    1. The supplied input JSON.
+    2. The supplied results JSON.
+    3. The raw CV data.
+    4. CV metadata.
+    5. The CV image/plot.
+    6. Any existing report analysis or narrative containing explicitly stated CV measurements.
 
-    - overall_interpretation:
+    Use the following priority when extracting numerical CV values:
+
+    1. Explicit numerical values in results.cv.
+    2. Explicit numerical values in any structured CV analysis already supplied.
+    3. Explicit numerical values in analysis.cv_analysis if present in supplied data.
+    4. Raw numerical CV arrays.
+    5. Clearly readable values from the CV plot/image.
+    6. Narrative descriptions elsewhere in the supplied data.
+
+    Do NOT invent values.
+
+    ==================================================
+    ANODIC PEAK
+    ==================================================
+
+    Search explicitly for:
+
+    - anodic peak potential
+    - anodic peak current
+    - anodic peak current unit
+    - anodic onset potential
+    - any explicit confidence or source information
+
+    Store the values in:
+
+    analysis.cv_analysis.peak_analysis.anodic_peak
+
+    using:
+
+    "potential_v"
+    "current"
+    "current_unit"
+    "onset_potential_v"
+    "confidence"
+    "source"
+
+    Important:
+
+    - "potential_v" is a JSON field name and MUST use lowercase "v".
+    - If the numerical unit is volts, the unit itself is "V".
+    - Do not use "potential_V" as a field name.
+    - Do not use "onset_potential_V" as a field name.
+    - If the current unit is ambiguous, preserve the numerical value and explicitly describe the ambiguity.
+    - Do not silently convert A to uA or uA to A.
+    - If the peak potential can only be estimated from a plot, mark the confidence as "approximate" and identify the source as "plot" or an appropriate combined source.
+    - If it is supported by raw numerical data, identify the source as "raw_data" or "raw_data_and_plot" as appropriate.
+
+    ==================================================
+    CATHODIC PEAK
+    ==================================================
+
+    Search explicitly for:
+
+    - cathodic peak potential
+    - cathodic peak current
+    - cathodic peak current unit
+    - cathodic onset potential
+    - any explicit confidence or source information
+
+    Store the values in:
+
+    analysis.cv_analysis.peak_analysis.cathodic_peak
+
+    using:
+
+    "potential_v"
+    "current"
+    "current_unit"
+    "onset_potential_v"
+    "confidence"
+    "source"
+
+    Important:
+
+    - "potential_v" is a JSON field name and MUST use lowercase "v".
+    - If the numerical unit is volts, the unit itself is "V".
+    - Do not use "potential_V" as a field name.
+    - Do not use "onset_potential_V" as a field name.
+    - If the current unit is ambiguous, preserve the numerical value and explicitly describe the ambiguity.
+    - Do not silently convert current units.
+    - If the peak potential can only be estimated from a plot, mark the confidence as "approximate".
+
+    ==================================================
+    PEAK SEPARATION
+    ==================================================
+
+    Search explicitly for:
+
+    - peak separation
+    - delta E
+    - delta Ep
+    - peak potential difference
+    - anodic/cathodic peak potential difference
+
+    Store the result in:
+
+    analysis.cv_analysis.peak_analysis.peak_separation
+
+    using:
+
+    "delta_potential_v"
+    "calculation"
+
+    Important:
+
+    - "delta_potential_v" is a JSON field name and MUST use lowercase "v".
+    - If the unit is volts, the corresponding unit is "V".
+    - Do not use "delta_potential_V" as a field name.
+
+    If both peak potentials are available, calculate:
+
+    anodic_peak_potential_v - cathodic_peak_potential_v
+
+    Do not calculate this if either peak potential is unavailable or unreliable.
+
+    If the source already provides an explicit peak separation, preserve the supplied value and identify that it was supplied rather than independently calculated.
+
+    ==================================================
+    ONSET ANALYSIS
+    ==================================================
+
+    Search explicitly for:
+
+    - anodic onset potential
+    - cathodic onset potential
+    - onset potential
+    - oxidation onset
+    - reduction onset
+
+    Store the results in:
+
+    analysis.cv_analysis.onset_analysis
+
+    using:
+
+    "anodic_onset_potential_v"
+    "cathodic_onset_potential_v"
+    "onset_definition"
+
+    Important:
+
+    - JSON field names MUST use lowercase "v".
+    - Do not use "anodic_onset_potential_V".
+    - Do not use "cathodic_onset_potential_V".
+
+    Try to calculate onset potentials.
+
+    If an onset is estimated from a plot, state that it is approximate.
+
+    If no defensible onset can be determined:
+
+    "anodic_onset_potential_v": null
+
+    and/or
+
+    "cathodic_onset_potential_v": null
+
+    and explain the absence in "onset_definition".
+
+    ==================================================
+    CURRENT ANALYSIS
+    ==================================================
+
+    Store peak current information in:
+
+    analysis.cv_analysis.current_analysis
+
+    using:
+
+    "anodic_peak_current"
+    "anodic_peak_current_unit"
+    "cathodic_peak_current"
+    "cathodic_peak_current_unit"
+
+    Preserve the source current values and units.
+
+    IMPORTANT:
+
+    - The value of the current is given in A.
+
+    ==================================================
+    OTHER CV QUANTITIES
+    ==================================================
+
+    Where reliably supported, also consider:
+
+    - formal or midpoint potential
+    - peak current ratio
+    - background current
+    - baseline characteristics
+    - cycle-to-cycle changes
+    - peak position changes
+    - peak current changes
+    - reversibility
+    - quasi-reversibility
+    - irreversibility
+    - other electrochemically relevant observations
+
+    Do not calculate or report a value merely because it would normally be useful.
+
+    Only report it when the supplied evidence supports it.
+
+    ==================================================
+    PEAK CONFIDENCE AND SOURCE
+    ==================================================
+
+    For each extracted peak quantity, distinguish between:
+
+    - exact/supplied
+    - calculated
+    - approximate
+    - unavailable
+
+    Use the "confidence" field to describe the reliability of the value.
+
+    Examples:
+
+    "confidence": "high"
+    "confidence": "moderate"
+    "confidence": "approximate"
+    "confidence": "low"
+
+    Use "source" to identify where the value came from.
+
+    Examples:
+
+    "source": "raw_data"
+    "source": "plot"
+    "source": "raw_data_and_plot"
+    "source": "supplied_report"
+    "source": "calculated_from_raw_data"
+
+    Do not claim a value came from raw data if it was only estimated from the plot.
+
+    ==================================================
+    RAW DATA INTERPRETATION
+    ==================================================
+
+    analysis.cv_analysis.raw_data_interpretation:
+
+    - Describe what the raw CV data supports.
+    - Identify potential range where available.
+    - Identify current range where available.
+    - Identify available cycle information.
+    - Identify inconsistencies between raw data, metadata, and plots.
+    - Preserve the supplied units and labels.
+    - Explicitly mention unit ambiguity where present.
+    - Do not silently correct inconsistent metadata.
+
+    ==================================================
+    ELECTROCHEMICAL ASSIGNMENT
+    ==================================================
+
+    analysis.cv_analysis.electrochemical_assignment:
+
+    - Identify the likely electrochemical couple or process only when supported by the supplied experiment context and data.
+    - Distinguish assignment from direct measurement.
+    - Do not present an inferred chemical assignment as a directly measured fact.
+
+    ==================================================
+    REVERSIBILITY ASSESSMENT
+    ==================================================
+
+    analysis.cv_analysis.reversibility_assessment:
+
+    Assess the electrochemical behavior using the supplied evidence.
+
+    Consider:
+
+    - peak separation
+    - peak symmetry
+    - peak current relationship
+    - cycle-to-cycle behavior
+    - background current
+    - peak stability
+    - scan rate information
+    - other supplied evidence
+
+    Do not make a stronger reversibility claim than the data supports.
+
+    ==================================================
+    IMPORTANT CV RULES
+    ==================================================
+
+    - Do NOT invent a peak.
+    - Try to calculate the onset potential.
+    - Do NOT invent a current.
+    - Do NOT invent a current unit.
+    - Do NOT invent a peak separation.
+    - Do NOT invent a formal potential.
+    - Do NOT invent a current ratio.
+    - Do NOT invent electrochemical behavior.
+    - If a value cannot be reliably determined, return null unless it is the anodic onset potential.
+    - If the source JSON already contains a value, preserve it and identify that it came from supplied data.
+    - If a value appears only in narrative text, extract it into the structured fields when explicitly stated.
+    - If a value appears only in a plot, identify it as approximate where appropriate.
+    - If numerical values conflict, do not silently choose one.
+    - Report the conflict in the appropriate analysis, warning, or limitation field.
+    - Never resolve conflicting values by guessing.
+
+    ==================================================
+    PH INTERPRETATION
+    ==================================================
+
+    ph_interpretation:
+
+    - Analyze the supplied pH measurements.
+    - Preserve the measured values exactly.
+    - If before and after pH values are available, report the change.
+    - Do not invent a causal explanation for the change.
+    - If measurements are unavailable, explicitly state that they are unavailable.
+
+    ==================================================
+    TEMPERATURE INTERPRETATION
+    ==================================================
+
+    Temperature data belongs in:
+
+    results.temp
+
+    If temperature measurements are available:
+
+    - Preserve the supplied before and after values.
+    - Preserve the supplied units.
+    - Report temperature changes when appropriate.
+    - Do not invent a cause for temperature changes.
+
+    ==================================================
+    DISPENSED MASS INTERPRETATION
+    ==================================================
+
+    Dispensed mass data belongs in:
+
+    results.dispensed_masses
+
+    When both planned and actual/dispensed masses are available:
+
+    - Preserve both values.
+    - Clearly distinguish planned from actual.
+    - Do not replace planned mass with actual mass.
+    - Do not replace actual mass with planned mass.
+    - If a supplied mass is encoded as a string, preserve the original numerical value and unit.
+    - If actual mass differs from planned mass, mention the discrepancy in the appropriate warning, limitation, or interpretation field.
+    - Do not invent a mass.
+
+    ==================================================
+    ELECTRODE INTERPRETATION
+    ==================================================
+
+    electrode_interpretation:
+
+    - If electrode_before and/or electrode_after images are available, explicitly describe visible features in those images.
+    - Where both images are available, compare before and after appearance.
+    - Only describe features that can actually be observed.
+    - Do NOT invent visual observations.
+    - If an image is unusable, blurred, overexposed, underexposed, or otherwise insufficient for reliable interpretation, explicitly state this.
+    - Do not claim surface chemistry, morphology, roughness, contamination, or deposition unless supported by visible evidence or supplied analytical data.
+
+    ==================================================
+    OVERALL INTERPRETATION
+    ==================================================
+
+    overall_interpretation:
+
     Provide an integrated scientific interpretation based only on the available evidence.
 
+    Clearly distinguish:
+
+    1. Directly measured data.
+    2. Values calculated from measured data.
+    3. Values estimated from plots.
+    4. Scientific interpretation.
+    5. Uncertainty or ambiguity.
+
+    ==================================================
+    EXECUTION
+    ==================================================
+
     execution:
+
     - errors: list actual errors encountered or observed.
-    - warnings: list relevant warnings, including important missing data.
+    - warnings: list relevant warnings, including:
+    - missing data
+    - conflicting metadata
+    - inconsistent units
+    - planned versus actual discrepancies
+    - unusable images
+    - inconsistent cycle counts
+    - other important data-quality issues
+
+    Do not describe a warning as an experimental failure unless the supplied evidence explicitly supports that conclusion.
+
+    ==================================================
+    MISSING DATA
+    ==================================================
 
     missing_data:
+
     - MUST contain every item from the supplied missing_data array.
     - Do NOT omit missing items.
     - Missing data must NEVER be interpreted as evidence of experimental failure.
     - Treat missing data as a limitation of the available evidence.
 
+    ==================================================
+    CONCLUSIONS
+    ==================================================
+
     conclusions:
+
     - Provide scientifically supported conclusions.
     - Conclusions must be based only on supplied experimental evidence.
     - Do not invent results.
+    - Distinguish measured observations from interpretation.
+    - Do not state uncertain interpretations as established facts.
+
+    ==================================================
+    RECOMMENDATIONS
+    ==================================================
 
     recommendations:
+
     - Provide reasonable scientific recommendations for follow-up measurements,
     experiments, controls, or data collection.
     - Recommendations should address important limitations or missing information.
+    - Recommendations must not invent missing experimental results.
+
+    ==================================================
+    LIMITATIONS
+    ==================================================
 
     limitations:
-    - Identify limitations caused by missing, incomplete, simulated, or low-quality data.
+
+    - Identify limitations caused by missing, incomplete, simulated, conflicting, or low-quality data.
     - Clearly distinguish limitations from experimental failure.
+    - Explicitly mention important unit ambiguities or conflicting metadata.
+
+    ==================================================
+    DATA QUALITY
+    ==================================================
 
     data_quality:
+
     - rating should reflect the completeness and reliability of the supplied data.
     - Use an appropriate qualitative value such as:
     "Good", "Fair", or "Poor".
-    - Do not rate the data as "Good" when important experimental information is missing.
+    - Do not rate the data as "Good" when important experimental information is missing, contradictory, or unreliable.
+
+    ==================================================
+    TEST DATA
+    ==================================================
 
     test_data:
+
     - used: indicate whether simulated/test data was used.
     - items: list relevant simulated, test, or non-experimental data items.
+    - Do not classify genuine experimental measurements as test data.
 
     ==================================================
     SCIENTIFIC RULES
@@ -1664,15 +2144,37 @@ def analise_data_with_AI(
     2. Do not fabricate observations from images.
     3. Do not fabricate CV peaks or electrochemical behavior.
     4. Do not fabricate pH values.
-    5. Do not fabricate electrode properties.
-    6. Clearly distinguish measured data from interpretation.
-    7. Clearly distinguish visual observations from scientific interpretation.
-    8. Missing data is NOT equivalent to experimental failure.
-    9. If data is unavailable, explicitly state that it is unavailable.
-    10. Use the attached images as evidence when they are available.
-    11. Use raw numerical data as evidence whenever available.
-    12. Ensure all conclusions are consistent with the supplied results.
-    13. Ensure every item in missing_data is preserved in the final report.
+    5. Do not fabricate temperature values.
+    6. Do not fabricate dispensed masses.
+    7. Do not fabricate electrode properties.
+    8. Clearly distinguish measured data from interpretation.
+    9. Clearly distinguish visual observations from scientific interpretation.
+    10. Clearly distinguish supplied values from calculated values.
+    11. Clearly distinguish calculated values from plot estimates.
+    12. Missing data is NOT equivalent to experimental failure.
+    13. If data is unavailable, explicitly state that it is unavailable.
+    14. Use the attached images as evidence when they are available.
+    15. Use raw numerical data as evidence whenever available.
+    16. Ensure all conclusions are consistent with the supplied results.
+    17. Ensure every item in missing_data is preserved in the final report.
+    18. Never silently change units.
+    19. Never silently resolve conflicting measurements.
+    20. Never guess an experimental value.
+    21. Never use uppercase "V" inside JSON field names that represent volts.
+    22. Use lowercase "v" in JSON field names such as:
+        - potential_v
+        - onset_potential_v
+        - delta_potential_v
+        - anodic_onset_potential_v
+        - cathodic_onset_potential_v
+    23. Use uppercase "V" only as the actual unit symbol for volts.
+    24. Keep "mV" and "V" distinct.
+    25. Keep "A" and "uA" distinct.
+    26. If a supplied current unit is ambiguous, preserve the ambiguity rather than guessing.
+    27. Do not silently convert mV to V, V to mV, A to uA, or uA to A when the source is ambiguous.
+    28. Numerical field names and unit symbols are different concepts:
+        - field name: "potential_v"
+        - unit value: "V"
 
     ==================================================
     FINAL OUTPUT REQUIREMENT
@@ -1681,11 +2183,14 @@ def analise_data_with_AI(
     Return ONLY the JSON object matching the exact structure above.
 
     Do not add any additional keys at the top level.
+
     Do not add Markdown.
+
     Do not add commentary.
     """
         }
     ]
+
     # Attach existing images into user_content as base64 URLs
     if image_paths:
         for img_label, img_path in image_paths.items():
@@ -1818,463 +2323,1370 @@ def analise_data_with_AI(
 
     return report
 
-def json_to_pdf(report_data, output_pdf_path, input_data=None, image_paths=None):
-    """Convert comprehensive LLM report and raw input configuration JSON into a multi-page PDF."""
+def json_to_pdf(
+    report_data,
+    output_pdf_path,
+    input_data=None,
+    results_data=None,
+    image_paths=None,
+):
+    """
+    Create a simple PDF report from:
+        input_data   = planned experiment
+        results_data = actual experiment results
+        report_data  = LLM analysis
+    """
+
     try:
         from pathlib import Path
+        from xml.sax.saxutils import escape
+
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import letter
-        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.platypus import (
-            Image as RLImage,
-            Paragraph,
             SimpleDocTemplate,
+            Paragraph,
             Spacer,
             Table,
             TableStyle,
+            PageBreak,
+            Image,
+            Flowable,
         )
+
     except ImportError:
         print("[WARNING] ReportLab library not found. PDF generation skipped.")
         return
 
+    # ------------------------------------------------------------
+    # BASIC DATA
+    # ------------------------------------------------------------
+
+    input_data = input_data or {}
+    results_data = results_data or {}
+    image_paths = image_paths or {}
+    report_data = report_data or {}
+
+    meta = report_data.get("report_metadata", {}) or {}
+    input_meta = input_data.get("metadata", {}) or {}
+
+    setup = report_data.get("experimental_setup", {}) or {}
+    params = report_data.get("cv_parameters", {}) or {}
+    input_params = input_data.get("cv_parameters", {}) or {}
+
+    analysis = report_data.get("analysis", {}) or {}
+    cv_analysis = analysis.get("cv_analysis", {}) or {}
+    peak_analysis = cv_analysis.get("peak_analysis", {}) or {}
+
+    results = report_data.get("results", {}) or {}
+
+    result_ph = results_data.get("ph_measurements", {}) or {}
+    result_temp = results_data.get("temp", {}) or {}
+    result_masses = results_data.get("dispensed_masses", {}) or {}
+
+    # ------------------------------------------------------------
+    # SIMPLE HELPERS
+    # ------------------------------------------------------------
+
+    def text(value):
+        """Make text safe for ReportLab."""
+        if value is None or value == "":
+            return "N/A"
+
+        if isinstance(value, bool):
+            return "Yes" if value else "No"
+
+        return escape(str(value))
+
+    def value(first, second=None, third=None):
+        """Return the first value that actually exists."""
+        for item in (first, second, third):
+            if item is not None and item != "":
+                return item
+        return None
+
+    def number(item, decimals=4):
+        """Format a number without making the report complicated."""
+        if item is None or item == "":
+            return "N/A"
+
+        if isinstance(item, (int, float)):
+            return f"{item:.{decimals}f}".rstrip("0").rstrip(".")
+
+        return text(item)
+
+    def add_section(title):
+        story.append(Spacer(1, 10))
+        story.append(Paragraph(title, styles["Heading2"]))
+
+    def add_text(label, item):
+        if item is not None and item != "":
+            story.append(
+                Paragraph(
+                    f"<b>{text(label)}:</b> {text(item)}",
+                    styles["BodyText"],
+                )
+            )
+
+    def add_list(items):
+        if items is None:
+            return
+
+        if not isinstance(items, list):
+            items = [items]
+
+        for item in items:
+            if isinstance(item, dict):
+                for key, val in item.items():
+                    story.append(
+                        Paragraph(
+                            f"• <b>{text(key)}:</b> {text(val)}",
+                            styles["BodyText"],
+                        )
+                    )
+            else:
+                story.append(
+                    Paragraph(
+                        f"• {text(item)}",
+                        styles["BodyText"],
+                    )
+                )
+
+    def make_table(rows, widths=None):
+        table = Table(
+            rows,
+            colWidths=widths,
+            repeatRows=1,
+        )
+
+        table.setStyle(
+            TableStyle(
+                [
+                    (
+                        "BACKGROUND",
+                        (0, 0),
+                        (-1, 0),
+                        colors.lightgrey,
+                    ),
+                    (
+                        "TEXTCOLOR",
+                        (0, 0),
+                        (-1, 0),
+                        colors.black,
+                    ),
+                    (
+                        "FONTNAME",
+                        (0, 0),
+                        (-1, 0),
+                        "Helvetica-Bold",
+                    ),
+                    (
+                        "GRID",
+                        (0, 0),
+                        (-1, -1),
+                        0.5,
+                        colors.grey,
+                    ),
+                    (
+                        "FONTSIZE",
+                        (0, 0),
+                        (-1, -1),
+                        8,
+                    ),
+                    (
+                        "VALIGN",
+                        (0, 0),
+                        (-1, -1),
+                        "TOP",
+                    ),
+                    (
+                        "LEFTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                ]
+            )
+        )
+
+        return table
+
+    # ------------------------------------------------------------
+    # EDITABLE HUMAN EVALUATION FIELD
+    # ------------------------------------------------------------
+
+    class EditableField(Flowable):
+
+        counter = 0
+
+        def __init__(self, width=110, height=18):
+            Flowable.__init__(self)
+
+            self.width = width
+            self.height = height
+
+            EditableField.counter += 1
+
+            self.field_name = (
+                f"human_evaluation_{EditableField.counter}"
+            )
+
+        def wrap(self, availWidth, availHeight):
+            return self.width, self.height
+
+        def draw(self):
+
+            self.canv.acroForm.textfield(
+                name=self.field_name,
+                value="",
+
+                # These are now relative to the Table cell
+                x=0,
+                y=0,
+
+                width=self.width,
+                height=self.height,
+
+                borderStyle="solid",
+                borderWidth=0.5,
+
+                borderColor=colors.grey,
+                fillColor=colors.white,
+                textColor=colors.black,
+
+                fontName="Helvetica",
+                fontSize=9,
+
+                forceBorder=True,
+
+                # IMPORTANT:
+                # Make the field obey the Table cell's
+                # current canvas transformation.
+                relative=True,
+            )
+
+    # ------------------------------------------------------------
+    # BASIC EXPERIMENT INFORMATION
+    # ------------------------------------------------------------
+
+    experiment_name = value(
+        meta.get("experiment_name"),
+        input_meta.get("experiment_name"),
+        "Electrochemical Experiment",
+    )
+
+    experimenter = value(
+        meta.get("experimenter"),
+        input_meta.get("experimenter"),
+        "N/A",
+    )
+
+    experiment_date = value(
+        meta.get("report_generated_date"),
+        meta.get("analysis_date"),
+        "N/A",
+    )
+
+    user_prompt = value(
+        input_meta.get("user_prompt"),
+        meta.get("user_prompt"),
+        "N/A",
+    )
+
+    working_electrode = value(
+        input_params.get("working_electrode"),
+        input_params.get("working_electrode_type"),
+        setup.get("working_electrode"),
+    )
+
+    counter_electrode = value(
+        input_params.get("counter_electrode"),
+        input_params.get("counter_electrode_type"),
+        setup.get("counter_electrode"),
+    )
+
+    reference_electrode = value(
+        input_params.get("reference_electrode"),
+        input_params.get("reference_electrode_type"),
+        setup.get("reference_electrode"),
+    )
+
+    start_potential = value(
+        input_params.get("start_potential_v"),
+        params.get("start_potential_v"),
+    )
+
+    vertex_potential = value(
+        input_params.get("potential_vertex_v"),
+        params.get("potential_vertex_v"),
+    )
+
+    scan_rate = value(
+        input_params.get("scan_rate_mv_s"),
+        input_params.get("scan_rate_mV_s"),
+        params.get("scan_rate_mv_s"),
+    )
+
+    step_size = value(
+        input_params.get("increment_v"),
+        input_params.get("increment_V"),
+        params.get("increment_v"),
+    )
+
+    cycles = value(
+        input_params.get("cycles"),
+        params.get("cycles"),
+    )
+
+    # ------------------------------------------------------------
+    # pH / TEMPERATURE
+    # ------------------------------------------------------------
+
+    ph_before = ph_data.get("ph_before")
+    ph_after = ph_data.get("ph_after")
+
+    temp_before = ph_data.get("temp_before_C")
+    temp_after = ph_data.get("temp_after_C")
+
+    # ------------------------------------------------------------
+    # REPORT SETUP
+    # ------------------------------------------------------------
+
     doc = SimpleDocTemplate(
         str(output_pdf_path),
         pagesize=letter,
-        rightMargin=36,
-        leftMargin=36,
-        topMargin=36,
-        bottomMargin=36,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40,
+        title=str(experiment_name),
     )
+
     styles = getSampleStyleSheet()
     story = []
 
-    # Palette & Styles
-    title_style = ParagraphStyle(
-        "ReportTitle",
-        parent=styles["Heading1"],
-        fontSize=18,
-        leading=22,
-        textColor=colors.HexColor("#1A365D"),
-    )
-    h2_style = ParagraphStyle(
-        "SectionHeading",
-        parent=styles["Heading2"],
-        fontSize=12,
-        leading=16,
-        textColor=colors.HexColor("#2B6CB0"),
-        spaceBefore=12,
-        spaceAfter=4,
-    )
-    sub_heading = ParagraphStyle(
-        "SubHeading",
-        parent=styles["Heading3"],
-        fontSize=10,
-        leading=13,
-        textColor=colors.HexColor("#2C5282"),
-        spaceBefore=6,
-        spaceAfter=2,
-    )
-    body_style = ParagraphStyle(
-        "BodyText", parent=styles["Normal"], fontSize=9, leading=13, spaceAfter=3
-    )
-    bullet_style = ParagraphStyle(
-        "BulletText",
-        parent=styles["Normal"],
-        fontSize=9,
-        leading=13,
-        leftIndent=12,
-        spaceAfter=2,
-    )
-    warning_style = ParagraphStyle(
-        "WarningText",
-        parent=styles["Normal"],
-        fontSize=9,
-        leading=13,
-        textColor=colors.HexColor("#C53030"),
-        spaceAfter=3,
-    )
-
-    def format_val(val):
-        if isinstance(val, list):
-            if len(val) == 2 and all(isinstance(x, (int, float)) for x in val):
-                return f"{val[0]} V to {val[1]} V"
-            return ", ".join(map(str, val))
-        if isinstance(val, dict):
-            return ", ".join(f"{k.replace('_', ' ')}: {v}" for k, v in val.items())
-        return str(val) if val is not None else "N/A"
-
-    def render_list_or_str(content, custom_style=bullet_style):
-        """Safely render strings, lists, or dicts as bullet points or text blocks."""
-        if isinstance(content, list):
-            for item in content:
-                if isinstance(item, dict):
-                    action = item.get("recommendation") or item.get("action") or str(item)
-                    priority = item.get("priority", "medium")
-                    story.append(Paragraph(f"• [<b>{priority.upper()}</b>] {action}", custom_style))
-                else:
-                    story.append(Paragraph(f"• {item}", custom_style))
-        elif isinstance(content, dict):
-            for k, v in content.items():
-                if isinstance(v, (list, dict)):
-                    story.append(Paragraph(f"<b>{k.replace('_', ' ').title()}:</b>", body_style))
-                    render_list_or_str(v, custom_style)
-                else:
-                    story.append(Paragraph(f"• <b>{k.replace('_', ' ').title()}:</b> {v}", custom_style))
-        elif isinstance(content, str):
-            story.append(Paragraph(f"• {content}", custom_style))
-
-    def _format_experiment_response(experiment_json):
-        metadata = experiment_json.get("metadata", {})
-        reasoning = experiment_json.get("llm_reasoning", {})
-        recipe = experiment_json.get("recipe", {})
-        cv = experiment_json.get("cv_parameters", {})
-        experiment_name = metadata.get("experiment_name", "Unnamed experiment")
-        description = metadata.get("description", "")
-        mode = experiment_json.get("experiment_mode", "")
-        num_samples = experiment_json.get("num_samples", recipe.get("num_samples", 1))
-
-        solids = recipe.get("solids", [])
-        solids_text = "\n".join(f"- {s.get('name', 'Unknown')} ({s.get('mass_mg', 'N/A')} mg)" for s in solids) if solids else "- None"
-
-        liquids = recipe.get("liquids", [])
-        liquids_text = "\n".join(f"- {l.get('name', 'Unknown')} ({l.get('volume_ml', 'N/A')} mL)" for l in liquids) if liquids else "- None"
-        #"cv_parameters": {
-        #"potentiostat_id": 1,
-        #"i_range": "MICROAMPS200",
-        #"start_potential_v": 0.0,
-        #"potential_vertex_v": 0.0,
-        #"scan_rate_mv_s": 100.0,
-        #"cycles": 1,
-        #"increment_v": 0.01,
-        #"reference_electrode": "Ag/AgCl",
-        #"working_electrode_type": "Gold",
-        #"counter_electrode_type": "Platinum",
-        #"polishing": true,
-        #"polishing_cycles": 0
-        #},
-        #potential_window = cv.get("potential_window")
-        #if isinstance(potential_window, list) and len(potential_window) >= 2:
-        #    potential_text = f"{potential_window[0]} V -> {potential_window[1]} V"
-        #else:
-        #    potential_text = "Not specified"
-        start_potential = cv.get("start_potential_v")
-        end_potential = cv.get("potential_vertex_v")
-        potential_text = F"{start_potential} V -> {end_potential} V"
-
-        scan_rate = cv.get("scan_rate_mv_s")
-        step_size = cv.get("increment_v")
-        cycles = cv.get("cycles")
-        working_electrode = cv.get("working_electrode_type")
-        counter_electrode = cv.get("counter_electrode_type")
-        reference_electrode = cv.get("reference_electrode")
-        polishing = cv.get("polishing")
-        polishing_cycles = cv.get("polishing_cycles")
-
-        final_volume = recipe.get("final_volume_ml")
-        mixing_method = recipe.get("mixing_method")
-        mixing_time = recipe.get("mixing_time_seconds")
-        purge = recipe.get("purge")
-
-        mode_explanation = reasoning.get("selected_mode_explanation", "")
-        parameter_logic = reasoning.get("parameter_selection_logic", "")
-        assumptions = reasoning.get("assumptions", [])
-        assumptions_text = "\n".join(f"- {a}" for a in assumptions)
-
-        response = (
-            f"Experiment: {experiment_name}\n\n"
-            f"Description: {description}\n\n"
-            f"Mode: {mode}\n"
-            f"Samples: {num_samples}\n\n"
-            f"Materials:\nSolids:\n{solids_text}\n\nLiquids:\n{liquids_text}\n\n"
-            f"Preparation:\nFinal volume: {final_volume} mL\n"
-            f"Mixing: {mixing_method} ({mixing_time} s)\n"
-            f"Purge: {'Yes' if purge else 'No'}\n\n"
-            f"CV Parameters:\nWorking electrode: {working_electrode}\n"
-            f"Reference electrode: {reference_electrode}\n"
-            f"Counter electrode: {counter_electrode}\n"
-            f"Potential window: {potential_text}\n"
-            f"Scan rate: {scan_rate} V/s\n"
-            f"Step size: {step_size} V\n"
-            f"Cycles: {cycles}\n"
-            f"Electrode polishing: {'Yes' if polishing else 'No'}"
-        )
-        if polishing:
-            response += f" ({polishing_cycles} cycles)"
-        response += f"\n\nSelection Rationale:\n{mode_explanation}\n\n{parameter_logic}"
-        if assumptions_text:
-            response += f"\n\nImportant Assumptions:\n{assumptions_text}"
-        response += "\n\nThe complete experiment configuration is ready for execution."
-        return response
-
-    # Fallback / Normalization setup
-    if not input_data:
-        input_data = report_data.get("raw_input_context", {})
-
-    meta = report_data.get("report_metadata", {})
-    input_meta = input_data.get("metadata", {})
-    setup = report_data.get("experimental_setup", {})
-    params = report_data.get("cv_parameters", {})
-    #cell = params.get("electrochemical_cell", {})
-    input_params = input_data.get("cv_parameters", {})
-    reasoning = input_data.get("llm_reasoning", {})
-    sample_prep = report_data.get("sample_preparation", {})
-
-    we = input_params.get("working_electrode") or input_params.get("working_electrode_type")
-    ce = input_params.get("counter_electrode") or input_params.get("counter_electrode_type")
-    re = input_params.get("reference_electrode") or input_params.get("reference_electrode_type")
-
-    ph_temp_measurements= report_data.get("ph_measurements")
-    temp_before = ph_temp_measurements.get("temp_before_C")
-    temp_after = ph_temp_measurements.get("temp_after_C")
-    masses = report_data.get("dispensed_masses")
-    salt_mass = masses.get("salt", 0)
-    analyte_mass = masses.get("analyte", 0)
-    
-    pot_window = [input_params.get("start_potential_v"), input_params.get("potential_vertex_v")]
-
-    print(input_params)
-    input()
-    print(pot_window)
-    input()
-    print(we)
-    print(ce)
-    print(re)
-    input()
-    scan_rate = input_params.get("scan_rate_mV_s") or input_params.get("scan_rate_mv_s")
-    step_size = input_params.get("increment_V") or input_params.get("increment_v")
-    cycles = params.get("reported_cycles") or params.get("cycles") or input_params.get("cycles")
-    polishing = params.get("working_electrode_polished") if "working_electrode_polished" in params else input_params.get("polishing")
-    
-    user_prompt = input_meta.get("user_prompt") or meta.get("user_prompt") or "N/A"
-
-    # 1. Report Title & Header
-    exp_name = meta.get("experiment_name", input_meta.get("experiment_name", "Workflow")).replace("_", " ")
-    story.append(Paragraph(f"Experiment Report: {exp_name}", title_style))
-
-    exp_mode = setup.get("experiment_mode", input_data.get("experiment_mode", "N/A"))
-    experimenter = meta.get("experimenter", input_meta.get("experimenter", "N/A"))
-    date_val = meta.get("report_generated_date") or meta.get("analysis_date") or "N/A"
+    # ------------------------------------------------------------
+    # TITLE
+    # ------------------------------------------------------------
 
     story.append(
-    Paragraph(f"<b>Experimenter:</b> {experimenter} | <b>Mode:</b> {exp_mode} | <b>Date:</b> {date_val}", body_style,))
-    story.append(Spacer(1, 6))
-
-    # 2. Executive Summary
-    summary = report_data.get("experiment_summary", {})
-    story.append(Paragraph("1. Summary", h2_style))
-    story.append(Paragraph(f"<b>User Request:</b> <i>{user_prompt}</i>", body_style))
-    story.append(Spacer(1, 2))
-
-    if summary:
-        if "objective" in summary:
-            story.append(Paragraph(f"<b>Objective:</b> {summary['objective']}", body_style))
-        if "principal_observation" in summary or "reported_outcome" in summary:
-            obs = summary.get("principal_observation") or summary.get("reported_outcome")
-            story.append(Paragraph(f"<b>Principal Observation:</b> {obs}", body_style))
-        if "overall_interpretation" in summary:
-            story.append(Paragraph(f"<b>Overall Interpretation:</b> {summary['overall_interpretation']}", body_style))
-    story.append(Spacer(1, 6))
-
-    # 3. Setup & CV Parameters Table
-    story.append(Paragraph("2. Experimental Setup & CV Parameters", h2_style))
-    table_data = [
-        ["Working Electrode", F"{we}", "Scan Rate", f"{scan_rate} V/s"],
-        ["Counter Electrode", F"{ce}", "Step Size", f"{step_size} V"],
-        ["Reference Electrode", F"{re}", "Cycles", f"{cycles}"],
-        ["Potential Window", f"{pot_window[0]} V ->{pot_window[1]} V", "Polishing", format_val(polishing)],
-        ["Final Volume", f"{setup.get('electrolyte_and_analyte', {}).get('nominal_final_volume_mL', 15.0)} mL", "Purge Enabled", f"{setup.get('pre_measurement_treatment', {}).get('purge_enabled', True)}"],
-        ["Dispensed salt", f"{salt_mass} mg", "Dispensed analyte", f"{analyte_mass} mg"],
-        ["Temperature before CV", f"{temp_before} C", "Temperature after CV", f"{temp_after} C"]
-    ]
-    t = Table(table_data, colWidths=[130, 140, 130, 140])
-    t.setStyle(
-        TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F7FAFC")),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")),
-            ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 8.5),
-            ("PADDING", (0, 0), (-1, -1), 4),
-        ])
+        Paragraph(
+            f"Experiment Report: {text(experiment_name)}",
+            styles["Title"],
+        )
     )
-    story.append(t)
-    story.append(Spacer(1, 6))
 
-    # 4. Chemical Calculations / Sample Preparation Audit
-    conc_calcs = reasoning.get("concentration_calculations", [])
-    if conc_calcs or sample_prep:
-        story.append(Paragraph("3. Sample Preparation & Chemical Recipe", h2_style))
-        if conc_calcs:
-            calc_rows = [["Chemical", "Role", "Req. Conc.", "Theo. Mass", "Planned Mass"]]
-            for calc in conc_calcs:
-                calc_rows.append([
-                    str(calc.get("chemical", "N/A")),
-                    str(calc.get("role", "N/A")),
-                    f"{calc.get('requested_concentration_mol_L', 'N/A')} M",
-                    f"{calc.get('theoretical_mass_mg', 'N/A')} mg",
-                    f"{calc.get('planned_mass_mg', 'N/A')} mg",
-                ])
-            c_table = Table(calc_rows, colWidths=[140, 70, 90, 120, 120])
-            c_table.setStyle(
-                TableStyle([
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#E2E8F0")),
-                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#CBD5E0")),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, -1), 8),
-                    ("PADDING", (0, 0), (-1, -1), 3),
-                ])
+    cv_image = image_paths.get("CV")
+
+    if cv_image and Path(cv_image).exists():
+        #story.append(
+        #    Paragraph(
+        #        "<b>CV Plot</b>",
+        #        styles["Heading3"],
+        #    )
+        #)
+
+        story.append(
+            Image(
+                str(cv_image),
+                width=420,
+                height=245,
             )
-            story.append(c_table)
-            story.append(Spacer(1, 4))
+        )
 
-    # 5. Scientific Analysis & Artifact Rendering
-    story.append(Paragraph("4. Scientific Analysis & Image Artifacts", h2_style))
-    analysis = report_data.get("analysis", {})
-
-    # Visual Artifact Rendering (CV Plot)
-    cv_img_path = image_paths.get("CV") if image_paths else None
-    if cv_img_path and Path(cv_img_path).exists():
-        story.append(Paragraph("<b>Cyclic Voltammetry Plot:</b>", sub_heading))
-        story.append(RLImage(str(cv_img_path), width=350, height=220))
-        story.append(Spacer(1, 4))
     else:
-        story.append(Paragraph("<b>[NOTICE] CV Plot Image:</b> <i>File unavailable or missing.</i>", warning_style))
-
-    # Cyclic Voltammetry Interpretation Text
-    cv_ana = analysis.get("cv_analysis", {})
-    story.append(Paragraph("Cyclic Voltammetry Interpretation", sub_heading))
-    if isinstance(cv_ana, dict):
-        obs = cv_ana.get("raw_data_interpretation") or cv_ana.get("observed_behavior")
-        chem = cv_ana.get("electrochemical_assignment") or cv_ana.get("chemical_interpretation")
-        rev = cv_ana.get("reversibility_assessment")
-        
-        if obs:
-            story.append(Paragraph(f"• <b>Observed Behavior:</b> {obs}", bullet_style))
-        if chem:
-            story.append(Paragraph(f"• <b>Chemical Interpretation:</b> {chem}", bullet_style))
-        if rev:
-            story.append(Paragraph(f"• <b>Reversibility:</b> {rev}", bullet_style))
-            
-        if "quantitative_constraints" in cv_ana:
-            story.append(Paragraph("<b>Quantitative Constraints:</b>", body_style))
-            render_list_or_str(cv_ana["quantitative_constraints"])
-    elif cv_ana:
-        render_list_or_str(cv_ana)
-
-    # Visual Artifact Rendering (Electrode Images)
-    before_img_path = image_paths.get("electrode_before") if image_paths else None
-    after_img_path = image_paths.get("electrode_after") if image_paths else None
-    
-    electrode_cells = []
-    if before_img_path and Path(before_img_path).exists():
-        electrode_cells.append([Paragraph("<b>Electrode Before CV</b>", body_style), RLImage(str(before_img_path), width=180, height=130)])
-    else:
-        electrode_cells.append([Paragraph("<b>Electrode Before CV</b>", body_style), Paragraph("<i>[Image Missing]</i>", warning_style)])
-
-    if after_img_path and Path(after_img_path).exists():
-        electrode_cells.append([Paragraph("<b>Electrode After CV</b>", body_style), RLImage(str(after_img_path), width=180, height=130)])
-    else:
-        electrode_cells.append([Paragraph("<b>Electrode After CV</b>", body_style), Paragraph("<i>[Image Missing]</i>", warning_style)])
-
-    story.append(Paragraph("Electrode Surface Artifacts", sub_heading))
-    img_table = Table([[cell[0] for cell in electrode_cells], [cell[1] for cell in electrode_cells]], colWidths=[260, 260])
-    img_table.setStyle(
-        TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-            ("PADDING", (0, 0), (-1, -1), 2),
-        ])
+        story.append(
+            Paragraph(
+                "CV plot not available.",
+                styles["BodyText"],
+            )
+        )
+    story.append(
+        Paragraph(
+            f"<b>Experimenter:</b> {text(experimenter)} "
+            f"&nbsp;&nbsp; "
+            f"<b>Date:</b> {date.today().strftime('%d/%m/%Y')}",
+            styles["BodyText"],
+        )
     )
-    story.append(img_table)
-    story.append(Spacer(1, 4))
+    # ------------------------------------------------------------
+    # 1. SUMMARY
+    # ------------------------------------------------------------
 
-    # Electrode Text Analysis
-    elec_ana = analysis.get("electrode_analysis", {})
-    story.append(Paragraph("Electrode Surface Interpretation", sub_heading))
-    if elec_ana:
-        render_list_or_str(elec_ana)
+    add_section("1. Summary")
 
-    # pH Measurement Interpretation
-    story.append(Paragraph("pH Measurement Interpretation", sub_heading))
-    ph_ana = (
-        analysis.get("pH_analysis") 
-        or analysis.get("ph_analysis")
-        or (cv_ana.get("assessment_of_ph_change") if isinstance(cv_ana, dict) else None)
+    summary = report_data.get(
+        "experiment_summary",
+        {},
+    ) or {}
+
+    add_text("User request", user_prompt)
+    add_text("Description", summary.get("description"))
+    add_text("Objective", summary.get("objective"))
+
+    add_text(
+        "Principal observation",
+        value(
+            summary.get("principal_observation"),
+            summary.get("reported_outcome"),
+        ),
     )
-    
-    ph_data = (
-        sample_prep.get("ph_measurements") 
-        or sample_prep.get("ph_measurement") 
-        or report_data.get("results", {}).get("ph_measurements")
-        or report_data.get("results", {}).get("ph_results")
+
+    # ------------------------------------------------------------
+    # 2. EXPERIMENTAL SETUP
+    # ------------------------------------------------------------
+
+    add_section("2. Experimental Setup")
+
+    setup_rows = [
+        ["Parameter", "Value"],
+        ["Working electrode", text(working_electrode)],
+        ["Reference electrode", text(reference_electrode)],
+        ["Counter electrode", text(counter_electrode)],
+        [
+            "Start potential",
+            f"{number(start_potential)} V",
+        ],
+        [
+            "Vertex potential",
+            f"{number(vertex_potential)} V",
+        ],
+        [
+            "Scan rate",
+            f"{number(scan_rate)} mV/s",
+        ],
+        [
+            "Step size",
+            f"{number(step_size)} V",
+        ],
+        ["Cycles", text(cycles)],
+    ]
+
+    story.append(
+        make_table(
+            setup_rows,
+            [180, 320],
+        )
     )
-    
-    if ph_ana:
-        render_list_or_str(ph_ana)
-    elif ph_data:
-        before = ph_data.get("ph_before_cv", ph_data.get("ph_before", "N/A"))
-        after = ph_data.get("ph_after_cv", ph_data.get("ph_after", "N/A"))
-        story.append(Paragraph(f"• <b>pH Before CV:</b> {before}", bullet_style))
-        story.append(Paragraph(f"• <b>pH After CV:</b> {after}", bullet_style))
-        if "assessment" in ph_data:
-            story.append(Paragraph(f"• <b>Assessment:</b> {ph_data['assessment']}", bullet_style))
+
+    # ------------------------------------------------------------
+    # 3. SAMPLE PREPARATION
+    # ------------------------------------------------------------
+
+    add_section("3. Sample Preparation")
+
+    recipe = input_data.get(
+        "recipe",
+        {},
+    ) or {}
+
+    solids = recipe.get(
+        "solids",
+        [],
+    ) or []
+
+    liquids = recipe.get(
+        "liquids",
+        [],
+    ) or []
+
+    prep_rows = [
+        [
+            "Component",
+            "Planned amount",
+            "Actual amount",
+        ]
+    ]
+
+    for i, solid in enumerate(solids):
+
+        if not isinstance(solid, dict):
+            continue
+
+        name = solid.get(
+            "name",
+            "Unknown",
+        )
+
+        planned = solid.get(
+            "mass_mg"
+        )
+
+        actual = None
+
+        if i == 0:
+            actual = value(result_masses.get("salt"))
+        elif i == 1:
+            actual = value(result_masses.get("analyte"))
+
+        prep_rows.append(
+            [
+                text(name),
+                f"{number(planned, 3)} mg",
+                text(actual),
+            ]
+        )
+    for liquid in liquids:
+
+        if not isinstance(liquid, dict):
+            continue
+
+        name = liquid.get(
+            "name",
+            "Unknown",
+        )
+
+        volume = liquid.get(
+            "volume_ml"
+        )
+
+        prep_rows.append(
+            [
+                text(name),
+                f"{number(volume, 2)} mL",
+                "N/A",
+            ]
+        )
+
+    if len(prep_rows) == 1:
+
+        prep_rows.append(
+            [
+                "No preparation data",
+                "N/A",
+                "N/A",
+            ]
+        )
+
+    story.append(
+        make_table(
+            prep_rows,
+            [180, 160, 160],
+        )
+    )
+
+    # ------------------------------------------------------------
+    # 4. CV RESULTS
+    # ------------------------------------------------------------
+
+    add_section(
+        "4. Cyclic Voltammetry Results"
+    )
+
+    # ------------------------------------------------------------
+    # 5. LLM CV MEASUREMENTS
+    # ------------------------------------------------------------
+
+    add_section(
+        "4.1 LLM CV Measurements"
+    )
+
+    anodic = peak_analysis.get(
+        "anodic_peak",
+        {},
+    ) or {}
+
+    cathodic = peak_analysis.get(
+        "cathodic_peak",
+        {},
+    ) or {}
+
+    separation = peak_analysis.get(
+        "peak_separation",
+        {},
+    ) or {}
+
+    llm_rows = [
+        [
+            "Measurement",
+            "LLM value",
+            "Unit",
+        ]
+    ]
+
+    def add_llm_measurement(
+        label,
+        item,
+        unit="",
+        decimals=4,
+    ):
+
+        if item is not None and item != "":
+
+            llm_rows.append(
+                [
+                    label,
+                    number(item, decimals),
+                    unit,
+                ]
+            )
+
+    # Anodic
+    add_llm_measurement(
+        "Anodic peak potential",
+        anodic.get("potential_v"),
+        "V",
+        4,
+    )
+
+    add_llm_measurement(
+        "Anodic peak current",
+        anodic.get("current"),
+        anodic.get(
+            "current_unit",
+            "",
+        ),
+        6,
+    )
+
+    add_llm_measurement(
+        "Anodic onset potential",
+        anodic.get(
+            "onset_potential_v"
+        ),
+        "V",
+        4,
+    )
+
+    # Cathodic
+    add_llm_measurement(
+        "Cathodic peak potential",
+        cathodic.get(
+            "potential_v"
+        ),
+        "V",
+        4,
+    )
+
+    add_llm_measurement(
+        "Cathodic peak current",
+        cathodic.get("current"),
+        cathodic.get(
+            "current_unit",
+            "",
+        ),
+        6,
+    )
+
+    add_llm_measurement(
+        "Cathodic onset potential",
+        cathodic.get(
+            "onset_potential_v"
+        ),
+        "V",
+        4,
+    )
+
+    # Peak separation
+    add_llm_measurement(
+        "Peak-to-peak separation",
+        separation.get(
+            "delta_potential_v"
+        ),
+        "V",
+        4,
+    )
+
+    known_sections = {
+        "anodic_peak",
+        "cathodic_peak",
+        "peak_separation",
+    }
+
+    for key, item in peak_analysis.items():
+
+        if key in known_sections:
+            continue
+
+        if isinstance(
+            item,
+            (
+                str,
+                int,
+                float,
+                bool,
+            ),
+        ):
+
+            label = (
+                str(key)
+                .replace("_", " ")
+                .title()
+            )
+
+            llm_rows.append(
+                [
+                    label,
+                    number(item),
+                    "",
+                ]
+            )
+
+    story.append(
+        make_table(
+            llm_rows,
+            [250, 170, 80],
+        )
+    )
+
+    # ------------------------------------------------------------
+    # 6. HUMAN EVALUATION
+    # ------------------------------------------------------------
+
+    add_section(
+        "4.2 Human Evaluation"
+    )
+
+    story.append(
+        Paragraph(
+            "The LLM measurements are shown below for comparison. "
+            "The Human Evaluation column can be completed manually "
+            "using the editable fields.",
+            styles["BodyText"],
+        )
+    )
+    story.append(Spacer(1, 10))
+    human_rows = [
+        [
+            "Measurement",
+            "LLM result",
+            "Human evaluation",
+        ]
+    ]
+
+    def add_human_measurement(
+        label,
+        item,
+        unit="",
+        decimals=4,
+    ):
+
+        if item is None or item == "":
+            llm_result = "N/A"
+        else:
+            llm_result = (
+                f"{number(item, decimals)} {unit}"
+            ).strip()
+
+        human_rows.append(
+            [
+                label,
+                llm_result,
+
+                # ------------------------------------------------
+                # ONLY THE THIRD COLUMN IS EDITABLE
+                # ------------------------------------------------
+                EditableField(
+                    width=110,
+                    height=18,
+                ),
+            ]
+        )
+
+    # ------------------------------------------------------------
+    # Main CV measurements
+    # ------------------------------------------------------------
+
+    add_human_measurement(
+        "Anodic peak potential",
+        anodic.get(
+            "potential_v"
+        ),
+        "V",
+        4,
+    )
+
+    add_human_measurement(
+        "Anodic peak current",
+        anodic.get(
+            "current"
+        ),
+        anodic.get(
+            "current_unit",
+            "",
+        ),
+        6,
+    )
+
+    add_human_measurement(
+        "Anodic onset potential",
+        anodic.get(
+            "onset_potential_v"
+        ),
+        "V",
+        4,
+    )
+
+    add_human_measurement(
+        "Cathodic peak potential",
+        cathodic.get(
+            "potential_v"
+        ),
+        "V",
+        4,
+    )
+
+    add_human_measurement(
+        "Cathodic peak current",
+        cathodic.get(
+            "current"
+        ),
+        cathodic.get(
+            "current_unit",
+            "",
+        ),
+        6,
+    )
+
+    add_human_measurement(
+        "Cathodic onset potential",
+        cathodic.get(
+            "onset_potential_v"
+        ),
+        "V",
+        4,
+    )
+
+    add_human_measurement(
+        "Peak-to-peak separation",
+        separation.get(
+            "delta_potential_v"
+        ),
+        "V",
+        4,
+    )
+
+    # ------------------------------------------------------------
+    # Additional scalar peak-analysis values
+    # ------------------------------------------------------------
+
+    for key, item in peak_analysis.items():
+
+        if key in known_sections:
+            continue
+
+        if isinstance(
+            item,
+            (
+                str,
+                int,
+                float,
+                bool,
+            ),
+        ):
+
+            label = (
+                str(key)
+                .replace("_", " ")
+                .title()
+            )
+
+            human_rows.append(
+                [
+                    label,
+                    text(item),
+
+                    EditableField(
+                        width=110,
+                        height=18,
+                    ),
+                ]
+            )
+
+    # ------------------------------------------------------------
+    # Add Human Evaluation table
+    # ------------------------------------------------------------
+
+    story.append(
+        make_table(
+            human_rows,
+            [220, 160, 120],
+        )
+    )
+   # ------------------------------------------------------------
+    # 7. pH AND TEMPERATURE
+    # ------------------------------------------------------------
+
+    add_section(
+        "4.3 pH and Temperature"
+    )
+
+    ph_rows = [
+        [
+            "Measurement",
+            "Value",
+        ],
+        [
+            "pH before CV",
+            number(
+                ph_before,
+                2,
+            ),
+        ],
+        [
+            "pH after CV",
+            number(
+                ph_after,
+                2,
+            ),
+        ],
+        [
+            "Temperature before CV",
+            f"{number(temp_before, 2)} °C",
+        ],
+        [
+            "Temperature after CV",
+            f"{number(temp_after, 2)} °C",
+        ],
+    ]
+
+    story.append(
+        make_table(
+            ph_rows,
+            [250, 250],
+        )
+    )
+
+    add_text(
+        "pH interpretation",
+        analysis.get(
+            "ph_interpretation"
+        ),
+    )
+    # ------------------------------------------------------------
+    # 8. SCIENTIFIC INTERPRETATION
+    # ------------------------------------------------------------
+
+    add_section(
+        "5. Scientific Interpretation"
+    )
+
+    add_text(
+        "CV interpretation",
+        analysis.get(
+            "cv_interpretation"
+        ),
+    )
+
+    add_text(
+        "Raw data interpretation",
+        cv_analysis.get(
+            "raw_data_interpretation"
+        ),
+    )
+
+    add_text(
+        "Electrochemical assignment",
+        cv_analysis.get(
+            "electrochemical_assignment"
+        ),
+    )
+
+    add_text(
+        "Reversibility assessment",
+        cv_analysis.get(
+            "reversibility_assessment"
+        ),
+    )
+
+    story.append(PageBreak())
+    # ------------------------------------------------------------
+    # 9. DATA QUALITY
+    # ------------------------------------------------------------
+
+    add_section(
+        "6. Data Quality"
+    )
+
+    data_quality = report_data.get(
+        "data_quality",
+        {},
+    ) or {}
+
+    add_text(
+        "Rating",
+        data_quality.get(
+            "rating"
+        ),
+    )
+
+    warnings = (
+        report_data.get(
+            "execution",
+            {},
+        ) or {}
+    ).get(
+        "warnings",
+        [],
+    )
+
+    if warnings:
+
+        story.append(
+            Paragraph(
+                "<b>Warnings</b>",
+                styles["Heading3"],
+            )
+        )
+
+        add_list(warnings)
+
+    missing_data = report_data.get(
+        "missing_data",
+        [],
+    )
+
+    if missing_data:
+
+        story.append(
+            Paragraph(
+                "<b>Missing data</b>",
+                styles["Heading3"],
+            )
+        )
+
+        add_list(missing_data)
+
+    # ------------------------------------------------------------
+    # 7. ELECTRODE IMAGES
+    # ------------------------------------------------------------
+
+    add_section(
+        "7. Electrode Images"
+    )
+
+    before_image = image_paths.get(
+        "electrode_before"
+    )
+
+    after_image = image_paths.get(
+        "electrode_after"
+    )
+
+    image_rows = [
+        [
+            "Electrode before CV",
+            "Electrode after CV",
+        ]
+    ]
+
+    before_cell = "Image not available."
+    after_cell = "Image not available."
+
+    if (
+        before_image
+        and Path(before_image).exists()
+    ):
+
+        before_cell = Image(
+            str(before_image),
+            width=220,
+            height=160,
+        )
+
+    if (
+        after_image
+        and Path(after_image).exists()
+    ):
+
+        after_cell = Image(
+            str(after_image),
+            width=220,
+            height=160,
+        )
+
+    image_rows.append(
+        [
+            before_cell,
+            after_cell,
+        ]
+    )
+
+    story.append(
+        make_table(
+            image_rows,
+            [250, 250],
+        )
+    )
+
+    add_text(
+        "Electrode interpretation",
+        analysis.get(
+            "electrode_interpretation"
+        ),
+    )
+
+    # ------------------------------------------------------------
+    # 11. SAFETY
+    # ------------------------------------------------------------
+
+    add_section(
+        "8. Safety and Handling"
+    )
+
+    safety = input_data.get(
+        "safety_assessment",
+        {},
+    ) or {}
+
+    add_text(
+        "Handling precautions",
+        safety.get(
+            "handling_precautions"
+        ),
+    )
+
+    add_text(
+        "Hazards",
+        safety.get(
+            "hazards"
+        ),
+    )
+
+    add_text(
+        "Cross-contamination risks",
+        safety.get(
+            "cross_contamination_risks"
+        ),
+    )
+
+    add_text(
+        "Waste disposal",
+        safety.get(
+            "waste_disposal"
+        ),
+    )
+
+    execution_safety = (
+        report_data.get(
+            "execution",
+            {},
+        ) or {}
+    ).get(
+        "safety_notes"
+    )
+
+    if execution_safety:
+
+        add_text(
+            "Execution safety notes",
+            execution_safety,
+        )
+
+    # ------------------------------------------------------------
+    # 12. CONCLUSIONS
+    # ------------------------------------------------------------
+
+    add_section(
+        "9. Conclusions"
+    )
+
+    conclusions = report_data.get(
+        "conclusions"
+    )
+
+    if conclusions:
+
+        add_list(conclusions)
+
     else:
-        story.append(Paragraph("• No pH measurement data was logged for this run.", body_style))
 
-    # Consistency Check
-    story.append(Paragraph("Consistency Check", sub_heading))
-    prep_check = sample_prep.get("preparation_assessment")
-    config_check = analysis.get("configuration_consistency", {})
+        story.append(
+            Paragraph(
+                "No conclusions supplied.",
+                styles["BodyText"],
+            )
+        )
 
-    if config_check:
-        render_list_or_str(config_check)
-    elif prep_check:
-        story.append(Paragraph(f"• {prep_check}", bullet_style))
+    # ------------------------------------------------------------
+    # 13. RECOMMENDATIONS
+    # ------------------------------------------------------------
 
-    story.append(Spacer(1, 6))
+    add_section(
+        "10. Recommendations"
+    )
 
-    # 6. Safety Notes
-    safety_notes = report_data.get("execution", {}).get("safety_notes") or input_data.get("safety_assessment", {}).get("handling_precautions")
-    if safety_notes:
-        story.append(Paragraph("5. Safety & Handling Precautions", h2_style))
-        render_list_or_str(safety_notes)
-        story.append(Spacer(1, 6))
+    recommendations = report_data.get(
+        "recommendations"
+    )
 
-    # 7. Conclusions & Recommendations
-    concl = report_data.get("conclusions")
-    if concl:
-        story.append(Paragraph("6. Conclusions", h2_style))
-        render_list_or_str(concl)
-        story.append(Spacer(1, 6))
+    if recommendations:
 
-    recs = report_data.get("recommendations")
-    if recs:
-        story.append(Paragraph("7. Recommendations", h2_style))
-        render_list_or_str(recs)
-        story.append(Spacer(1, 6))
+        add_list(recommendations)
 
-    # 8. LLM Interaction Log
-    story.append(Paragraph("8. LLM Interaction Log", h2_style))
+    else:
 
-    if user_prompt:
-        story.append(Paragraph("<b>User Prompt:</b>", sub_heading))
-        story.append(Paragraph(f"<i>{user_prompt}</i>", body_style))
-        story.append(Spacer(1, 4))
+        story.append(
+            Paragraph(
+                "No recommendations supplied.",
+                styles["BodyText"],
+            )
+        )
 
-    if input_data:
-        story.append(Paragraph("<b>LLM Response:</b>", sub_heading))
-        formatted_llm_response = _format_experiment_response(input_data)
-        for line in formatted_llm_response.split("\n"):
-            if line.strip():
-                story.append(Paragraph(line, body_style))
+    # ------------------------------------------------------------
+    # 14. LIMITATIONS
+    # ------------------------------------------------------------
 
+    add_section(
+        "11. Limitations"
+    )
+
+    limitations = report_data.get(
+        "limitations"
+    )
+
+    if limitations:
+
+        add_list(limitations)
+
+    else:
+
+        story.append(
+            Paragraph(
+                "No limitations supplied.",
+                styles["BodyText"],
+            )
+        )
+
+    # ------------------------------------------------------------
+    # 15. LLM INTERACTION LOG
+    # ------------------------------------------------------------
+
+    story.append(PageBreak())
+
+    add_section(
+        "12. LLM Interaction Log"
+    )
+
+    # ------------------------------------------------------------
+    # User prompt
+    # ------------------------------------------------------------
+
+    story.append(
+        Paragraph(
+            "<b>User Prompt</b>",
+            styles["Heading3"],
+        )
+    )
+
+    metadata = input_data.get(
+        "metadata",
+        {},
+    ) or {}
+
+    user_prompt = metadata.get(
+        "user_prompt",
+        "No user prompt was provided in input_data.",
+    )
+
+    story.append(
+        Paragraph(
+            text(user_prompt),
+            styles["BodyText"],
+        )
+    )
+
+    story.append(
+        Spacer(1, 12)
+    )
+
+    # ------------------------------------------------------------
+    # LLM response / reasoning
+    # ------------------------------------------------------------
+    story.append(Paragraph("<b>LLM Response</b>",styles["Heading3"],))
+    llm_reasoning = input_data.get("llm_reasoning", {},) or {}
+
+    if (isinstance(llm_reasoning, dict) and llm_reasoning):
+        reasoning_fields = [
+            (
+                "Selected Mode",
+                "selected_mode_explanation",
+            ),
+            (
+                "Parameter Selection",
+                "parameter_selection_logic",
+            ),
+            (
+                "Electrolyte Preparation",
+                "electrolyte_preparation_explanation",
+            ),
+            (
+                "Analyte Preparation",
+                "analyte_preparation_explanation",
+            ),
+            (
+                "Electrode Deposition",
+                "electrode_deposition_explanation",
+            ),
+            (
+                "Drying",
+                "drying_explanation",
+            ),
+            (
+                "Constraint Validation",
+                "constraint_validation_summary",),]
+        for title, key in reasoning_fields:
+            value_text = llm_reasoning.get(key)
+            if value_text:
+                story.append(Paragraph(f"<b>{text(title)}</b>",styles["Heading3"],))
+                story.append(Paragraph(text(value_text),styles["BodyText"],))
+                story.append(Spacer(1, 6))
+        # --------------------------------------------------------
+        # Assumptions
+        # --------------------------------------------------------
+        assumptions = llm_reasoning.get("assumptions",[],) or []
+        if assumptions:
+            story.append(Paragraph("<b>Assumptions</b>",styles["Heading3"],))
+            for assumption in assumptions:
+                story.append(Paragraph(f"• {text(assumption)}",styles["BodyText"],))
+            story.append(Spacer(1, 8))
+        # --------------------------------------------------------
+        # Concentration calculations
+        # --------------------------------------------------------
+        concentration_calculations = (llm_reasoning.get("concentration_calculations",[],) or [])
+        if concentration_calculations:
+            story.append(Paragraph("<b>Concentration Calculations</b>",styles["Heading3"],))
+            for calculation in concentration_calculations:
+                if not isinstance(calculation,dict,):
+                    continue
+                chemical = calculation.get("chemical","Unknown chemical",)
+                explanation = calculation.get("calculation_explanation","",)
+                story.append(Paragraph(f"<b>{text(chemical)}</b>",styles["BodyText"],))
+                if explanation:
+                    story.append(Paragraph(text(explanation),styles["BodyText"],))
+                story.append(Spacer(1, 6))
+    else:
+        story.append(
+            Paragraph("No LLM response was provided in input_data.",styles["BodyText"],))
+    # ------------------------------------------------------------
+    # BUILD PDF
+    # ------------------------------------------------------------
+    # Keep the normal ReportLab build.
     doc.build(story)
-    print(f"[INFO] Generated complete PDF report: {output_pdf_path}")
-
+    print(f"[INFO] Generated PDF report: {output_pdf_path}")
 def photograph_electrode(electrode_number=1, file_name=""):
     """Photograph an electrode and save the image to file_name."""
     # Move camera under the requested electrode
     #home_echem()
-    #execute_routine_echem("idle.json")
     execute_routine_echem(f"camera_under_electrode_{electrode_number}.json");time.sleep(3)
     # Capture image from Flask camera API
     electrode_photo = camera.capture() ;time.sleep(2)
@@ -2283,52 +3695,103 @@ def photograph_electrode(electrode_number=1, file_name=""):
     with open(file_name, "wb") as f:
         f.write(electrode_photo)
     #execute_routine_echem("idle.json")
-    #home_echem()
+    home_echem()
     #home_echem()
     return file_name
-
 if __name__ == "__main__":
     # 1. Initialize workflow paths and load user script
     experiment, paths = load_experiment()
-    #with open(paths["data"] / "cv_raw.json", "r", encoding="utf-8") as f:
-    #    cv_data= json.load(f)
-        #cv_data["potential_V"], cv_data["current_uA"] = cv_data["current_uA"], cv_data["potential_V"] 
-    #with open(paths["data"] / "ph_measurements.json", "r", encoding="utf-8") as f:
-    #    ph_data = json.load(f)   
-    #print("[INFO] Generating final report...")
-    #results_data = {
-    #            "cv_raw": cv_data,
-    #            "ph_measurements": ph_data,
-    #            "images": {
-    #                "electrode_before": paths["imgs"] / "electrode_before.png",
-    #                "electrode_after": paths["imgs"] / "electrode_after.png",
-    #                "CV": paths["imgs"] / "CV.png",
-    #            },
-    #            "is_simulated": False,
-    #        }
-    #I= cv_data["potential_V"]
-    #V= cv_data["current_uA"]   
-    #report = generate_report(
-    #            input_data=experiment, results_data=results_data, paths=paths, model="terra")    
-    #print("[SUCCESS] Workflow execution and report generation complete.")
-    #sys.exit()
-    #"cv_parameters": {
-    #"potentiostat_id": 1,
-    #"i_range": "MICROAMPS200",
-    #"start_potential_v": 0.0,
-    #"potential_vertex_v": 0.0,
-    #"scan_rate_mv_s": 100.0,,
-    #"cycles": 1,
-    #"increment_v": 0.01,
-    #"reference_electrode": "Ag/AgCl",
-    #"working_electrode_type": "Gold",
-    #"counter_electrode_type": "Platinum",
-    #"polishing": true,
-    #"polishing_cycles": 0
-    #},
+    #echem_slot=2
+    #home_echem()
+    #print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
+    #execute_routine_echem("ph_measurement.json")
+    #execute_routine_echem("idle.json")
+    #home_echem()
+    #print("[INFO] Washing electrodes.") 
+    #execute_routine_echem("wash_electrodes.json")
+    ##wash_electrodes(cycles=10,electrode_id=echem_slot)
+    #execute_routine_echem("wash_electrodes_out.json")
+    #execute_routine_echem("ph_measurement.json")
+    #print("[INFO] Drying electrodes") 
+    #execute_routine_echem("idle.json")
+    #home_echem()
+    ##execute_routine_echem("idle.json")
+    #execute_routine_echem("cv_start_position.json")
+    #execute_routine_echem("cv_end_position.json")
+    #execute_routine_echem("idle.json")
+    #home_echem()
+    #print("[INFO] Setting ph measurement.") 
+    #execute_routine_echem("ph_measurement.json")
+    #echem.dryer_on();time.sleep(10)
+    #print("[INFO] Picking ph Probe") 
+    #print("[INFO] Returning ph Probe")
+    #echem.dryer_off();time.sleep(0.1)
+    #execute_routine_echem("idle.json")
+    #home_echem()
+    #print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
+    ##############################################
+    #POLISHING? YES POLISH no? continue 
+    ##############################################
+    #while True:
+    #    answer=input(f'[WARNING] Polish electrode {echem_slot} (y/n)')
+    #    if answer == 'y' or answer == 'Y':
+    #        print(F"[INFO] Polishing electrode {echem_slot} ")
+    #        polish_electrode(electrode_id=2,passes=3)
+    #        #washing and drying routine again
+    #        home_echem()    
+    #        print("[INFO] Washing electrodes.") 
+    #        execute_routine_echem("wash_electrodes.json")
+    #        wash_electrodes(cycles=10,electrode_id=echem_slot)
+    #        execute_routine_echem("wash_electrodes_out.json")
+    #        execute_routine_echem("ph_measurement.json")
+    #        print("[INFO] Drying electrodes") 
+    #        echem.dryer_on();time.sleep(10)
+    #        echem.dryer_off();time.sleep(0.1)
+    #        execute_routine_echem("idle.json")
+    #        home_echem()
+    #        home_echem()
+    #        print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after_polishing.png"))
+    #        break
+    #    elif answer == 'n' or answer == 'N':
+    #        print(F"[WARNING] Electrode {echem_slot} not polished.")
+    #        break
+    #sys.exit("DEBUG: CV test routine executed succesfully.")
+    ##########################################ONLY report form json##########################
+    """     # Load CV data 
+        with open(paths["data"] / "cv_raw.json", "r", encoding="utf-8") as f: 
+            cv_data = json.load(f) 
+        # Load pH data 
+        with open(paths["data"] / "ph_measurements.json", "r", encoding="utf-8") as f: 
+            ph_data = json.load(f) 
+        # Load dispensed masses 
+        with open(paths["data"] / "dispensed_masses.json", "r", encoding="utf-8") as f: 
+            dispensed_masses = json.load(f) 
+            # Load report raw data 
+        with open(paths["data"] / "report_raw_data.json", "r", encoding="utf-8") as f: 
+            report_data = json.load(f) 
+        # Build results_data exactly as expected by the report 
+        results_data = { "cv_raw": cv_data, 
+                        "ph_measurements": ph_data, 
+                        "images": { "electrode_before": paths["imgs"] / "electrode_before.png", "electrode_after": paths["imgs"] / "electrode_after.png", 
+                                "CV": paths["imgs"] / "CV.png", }, 
+                        "dispensed_masses": dispensed_masses, 
+                        "is_simulated": False, } 
+        # Generate the LLM report and/or PDF 
+        #report_data = generate_report( input_data=experiment, results_data=results_data, paths=paths, model="terra")
+        #sys.exit("DEBUG: JSON files loaded successfully. Stopping before experiment execution.")
+        report_from_json(
+            input_data=experiment,
+            results_data=results_data,
+            paths=paths,
+            model="terra",
+            report_data=report_data
+        )
+        sys.exit("DEBUG: JSON files loaded successfully. Stopping before experiment execution.")     """
+    ######################################################################################################
     if experiment["experiment_mode"] == "analyte_in_electrolyte":
+        echem_slot=2    
         cv_params={
-            "potentiostat_id":3,
+            "potentiostat_id":1,
             "i_range":I_range_mode[experiment["cv_parameters"]["i_range"]],
             "start_potential":experiment["cv_parameters"]["start_potential_v"],
             "potential_vertex":experiment["cv_parameters"]["potential_vertex_v"],
@@ -2336,33 +3799,7 @@ if __name__ == "__main__":
             "cycles":experiment["cv_parameters"]["cycles"],
             "increment":experiment["cv_parameters"]["increment_v"],
             "show_plot":True,}
-        #print(cv_params)
-        #bottom_carousel.turn_pumps_on();time.sleep(10)
-        #bottom_carousel.turn_pumps_off()
-        #sys.exit()
-        # 1.1 Execute 
 
-        #    "solids": [
-        #  {
-        #    "cartridge_position": 1,
-        #    "mass_mg": 149.1,
-        #    "molecular_weight_g_mol": 74.5513,
-        #    "name": "Potassium chloride",
-        #    "requested_concentration_mol_L": 0.1,
-        #    "role": "salt"
-        #  },
-        #  {
-        #    "cartridge_position": 2,
-        #    "mass_mg": 5.26,
-        #    "molecular_weight_g_mol": 176.12,
-        #    "name": "Vitamin C (ascorbic acid)",
-        #    "requested_concentration_mol_L": 0.005,
-        #    "role": "analyte"
-        #  }
-        #solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analite"]}, 
-        #liquids={1:["Water",10, "Solvent"]},
-        #liquids_dispenser.status()
-        #sys.exit()
         solids= {}
         for solid in experiment['recipe']['solids']:
             solids[solid['cartridge_position']]= [solid['name'],solid['mass_mg'],solid["role"]]
@@ -2370,58 +3807,36 @@ if __name__ == "__main__":
         liquids = {}
         for liquid in experiment['recipe']['liquids']:
             liquids[liquid['channel']]= [liquid['name'],liquid['volume_ml'],"solvent"]
-        print(liquids) 
-        #sys.exit()
-        #
-        prepare_sample(solids=solids,
+        print(liquids)
+        #TODO remove commenting block 
+        weights = prepare_sample(solids=solids,
                     liquids=liquids,
                     experiment={
             solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1},
             solids[2][2]: {'sample_id':solids[2],'cartridge_pos':2}
         })
+        ###TODO remove commenting block
+        #w1={'outcomes': ['Substance: KCL', 'Content Unit="mg": 124.16', 'Target_quantity Unit="mg": 111.83', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: INVALID'], 'success': True}
+        #w2={'outcomes': ['Substance: FERROCYANIDE', 'Content Unit="mg": 5.8', 'Target_quantity Unit="mg": 4.939', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: INVALID'], 'success': True}
+        #w1={'outcomes': ['Substance: KCL', 'Content Unit="mg": 111.90', 'Target_quantity Unit="mg": 111.32', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: VALID'], 'success': True}
+        #w2={'outcomes': ['Substance: VITAMIN C', 'Content Unit="mg": 131.84', 'Target_quantity Unit="mg": 132.00', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: VALID'], 'success': True}
+        #weights =[w1,w2]
         input("Continue?")
         home_echem()
         print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
-        V, I ,C, ph_before, ph_after, weights, temp_before, temp_after = analise_sample(echem_slot=2,cv_file_name=paths["imgs"] / "CV.png",cv_params=cv_params)
-        #input("continue?")
-        ###########################################
-        #CV Test logic SIMULATION
-        ###########################################
-        #try:
-        #    print("[INFO]  Executing CV test...")
-        #    df, data = run_cyclic_voltammetry(
-        #        potentiostat_id=3,
-        #        i_range=cv_params["i_range"],
-        #        start_potential=cv_params["start_potential"],
-        #        potential_vertex=cv_params["potential_vertex"],
-        #        scan_rate=cv_params["scan_rate"],
-        #        cycles=3,
-        #        increment=cv_params["increment"],
-        #        show_plot=cv_params["show_plot"],
-        #        file_name=paths["imgs"] / "CV.png")
-        #    V = df["Potential"].values
-        #    I = df["Current"].values
-        #    print("[INFO] CV test done.") 
-        #except Exception as e:
-        #        print(F"[Error] not possible to connect with potentiostats: {e}")
+        V, I ,C, ph_before, ph_after, temp_before, temp_after = analise_sample(echem_slot=echem_slot,cv_file_name=paths["imgs"] / "CV.png",cv_params=cv_params)
         print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
         home_echem()
-        # 2. Mock results execution (Simulated Data for pipeline verification)
         #input("continue?")
         print("[INFO] Simulating experiment execution...")
-        # Mock CV data
-        dispensed_masses ={"salt": weights[0],
-                            "analyte": weights[1]}
-        with open(paths["data"] / "dispensed_masses.json", "w", encoding="utf-8") as f:
-                    json.dump(dispensed_masses, f, indent=2)
         cv_data = {
             "potential_V": V.tolist(),
-            "current_uA": I.tolist(),
+            "current_A": I.tolist(),
             "cycle": C.tolist(),
-            "cycles": 3,
+            "cycles": experiment["cv_parameters"]["cycles"],
             "is_simulated": False,
         }
-        print(cv_data)
+        #print(cv_data)
         with open(paths["data"] / "cv_raw.json", "w", encoding="utf-8") as f:
             json.dump(cv_data, f, indent=2)
 
@@ -2431,7 +3846,10 @@ if __name__ == "__main__":
         with open(paths["data"] / "ph_measurements.json", "w", encoding="utf-8") as f:
             json.dump(ph_data, f, indent=2)
 
-        # Collect mock results directory references
+        dispensed_masses ={"salt": weights[0]['outcomes'][1],
+                                    "analyte": weights[1]['outcomes'][1]}
+        with open(paths["data"] / "dispensed_masses.json", "w", encoding="utf-8") as f:
+            json.dump(dispensed_masses, f, indent=2)
         results_data = {
             "cv_raw": cv_data,
             "ph_measurements": ph_data,
@@ -2443,14 +3861,53 @@ if __name__ == "__main__":
             "dispensed_masses": dispensed_masses,
             "is_simulated": False,
         }
-        
         # 3. Generate Report
         print("[INFO] Generating final report...")
-        report = generate_report(
-            input_data=experiment, results_data=results_data, paths=paths, model="terra"
-        )
-
+        #report = generate_report(input_data=experiment, results_data=results_data, paths=paths, model="terra")
+        report_data = generate_report(
+            input_data=experiment, 
+            results_data=results_data, 
+            paths=paths, 
+            model="terra")
+        report_from_json(
+            input_data=experiment,
+            results_data=results_data,
+            paths=paths,
+            model="terra",
+            report_data=report_data)
+        ##############################################
+        #POLISHING? YES POLISH no? continue 
+        ##############################################
+        while True:
+            answer=input(f'[WARNING] Polish electrode {echem_slot} (y/n)')
+            if answer == 'y' or answer == 'Y':
+                print(F"[INFO] Polishing electrode {echem_slot} ")
+                polish_electrode(electrode_id=2,passes=5)
+                #washing and drying routine again
+                home_echem()
+                print("[INFO] Washing electrodes.") 
+                execute_routine_echem("wash_electrodes.json")
+                wash_electrodes(cycles=20,electrode_id=echem_slot)
+                execute_routine_echem("wash_electrodes_out.json")
+                execute_routine_echem("ph_measurement.json")
+                print("[INFO] Drying electrodes") 
+                echem.dryer_on();time.sleep(10)
+                echem.dryer_off();time.sleep(0.1)
+                execute_routine_echem("idle.json")
+                home_echem()
+                home_echem()
+                print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after_polishing.png"))
+                break
+            elif answer == 'n' or answer == 'N':
+                print(F"[WARNING] Electrode {echem_slot} not polished.")
+                break
+        ############################################
+        # Homing system
+        #############################################
+        print("[INFO] Returning rack to carousel.")
+        execute_routine_arm("idle.json")
+        execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
+        execute_routine_arm("place_rack_in_bottom_carousel.json")
+        print("[INFO] Workflow finished, homing arm.")
+        home_arm()
         print("[SUCCESS] Workflow execution and report generation complete.")
-
-
-    

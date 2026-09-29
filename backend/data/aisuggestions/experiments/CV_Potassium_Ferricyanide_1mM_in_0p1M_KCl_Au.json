@@ -1,0 +1,162 @@
+{
+  "cv_parameters": {
+    "counter_electrode_type": "Platinum wire",
+    "cycles": 10,
+    "i_range": "MICROAMPS20",
+    "increment_v": 0.005,
+    "polishing": true,
+    "polishing_cycles": 3,
+    "potential_vertex_v": 0.7,
+    "potentiostat_id": 1,
+    "reference_electrode": "Ag/AgCl 3M KCl in H2O",
+    "scan_rate_mv_s": 100,
+    "solvent_type": "aqueous",
+    "start_potential_v": -0.5,
+    "working_electrode_type": "Gold (d = 2 mm)"
+  },
+  "experiment_mode": "analyte_in_electrolyte",
+  "llm_reasoning": {
+    "analyte_preparation_explanation": "Potassium ferricyanide is the dissolved analyte and is dispensed as a solid by Quantos. Its target concentration is 1.0 mM in the final 15.0 mL electrolyte volume. No pre-prepared analyte solution is assumed or required.",
+    "assumptions": [
+      "Quantos cartridges containing potassium chloride and anhydrous potassium ferricyanide are physically loaded in cartridge positions 1 and 2, respectively.",
+      "Pump channel 1 contains compatible water suitable for aqueous electrochemistry.",
+      "The stated molecular weight of potassium ferricyanide, 329.2443 g/mol, corresponds to anhydrous K3[Fe(CN)6].",
+      "Nitrogen is available to the electrochemical substation purge function.",
+      "The expected peak current for 1.0 mM ferricyanide at a 2 mm diameter gold electrode and 100 mV/s is in the low-microampere range; MICROAMPS20 is used as explicitly required by the user."
+    ],
+    "concentration_calculations": [
+      {
+        "actual_concentration_mol_L": 0.1,
+        "calculation_explanation": "For 0.100 M KCl in 15.0 mL: moles = 0.100 mol/L × 0.0150 L = 0.00150 mol. Mass = 0.00150 mol × 74.5513 g/mol = 0.111827 g = 111.827 mg.",
+        "chemical": "Potassium chloride",
+        "final_volume_L": 0.015,
+        "final_volume_ml": 15,
+        "molecular_weight_g_mol": 74.5513,
+        "planned_mass_mg": 111.827,
+        "requested_concentration_mol_L": 0.1,
+        "required_moles": 0.0015,
+        "role": "salt",
+        "theoretical_mass_g": 0.111827,
+        "theoretical_mass_mg": 111.827
+      },
+      {
+        "actual_concentration_mol_L": 0.001,
+        "calculation_explanation": "For 1.00 mM potassium ferricyanide in 15.0 mL: moles = 0.00100 mol/L × 0.0150 L = 0.0000150 mol. Mass = 0.0000150 mol × 329.2443 g/mol = 0.004939 g = 4.939 mg.",
+        "chemical": "Potassium ferricyanide, K3[Fe(CN)6]",
+        "final_volume_L": 0.015,
+        "final_volume_ml": 15,
+        "molecular_weight_g_mol": 329.2443,
+        "planned_mass_mg": 4.939,
+        "requested_concentration_mol_L": 0.001,
+        "required_moles": 1.5e-05,
+        "role": "analyte",
+        "theoretical_mass_g": 0.004939,
+        "theoretical_mass_mg": 4.939
+      }
+    ],
+    "constraint_validation_summary": "One experiment vial and one electrochemical slot are used. Two solid cartridges are required, which is within the maximum of eight. Each solid mass is below the 200 mg maximum cartridge capacity: KCl is 111.827 mg and potassium ferricyanide is 4.939 mg. One liquid pump channel is used, within the four-channel limit. Water volume is exactly 15.0 mL, satisfying the required total solvent volume for electrode immersion and the 15 mL final-volume requirement. The experiment uses the required gold working electrode, platinum wire counter electrode, Ag/AgCl 3 M KCl reference electrode, MICROAMPS20 current range, and 10 cycles.",
+    "drying_explanation": "No analyte film is deposited on the working electrode; therefore, no analyte drying step is required. The gold working electrode should be polished, washed, and dried by the electrochemical substation before immersion in the prepared electrolyte.",
+    "electrode_deposition_explanation": "No electrode deposition is used because potassium ferricyanide is characterized as a dissolved solution-phase analyte.",
+    "electrolyte_preparation_explanation": "Dispense 111.827 mg KCl from Quantos cartridge position 1 and 4.939 mg potassium ferricyanide from Quantos cartridge position 2 directly into one clean experiment vial. Dispense 15.0 mL water through liquid-pump channel 1. Mix the vial by ultrasound for 300 s to dissolve both solids and form homogeneous 1.0 mM potassium ferricyanide in 0.10 M KCl. Purge the prepared solution with nitrogen for 300 s, measure and record pH before the electrochemical test, then place the vial in the electrochemical substation.",
+    "parameter_selection_logic": "A 0.10 M KCl aqueous supporting electrolyte was selected because it provides adequate ionic conductivity, is chemically compatible with the Ag/AgCl 3 M KCl reference electrode, and is commonly used for ferricyanide electrochemistry. A 1.0 mM potassium ferricyanide concentration provides a readily measurable reversible one-electron redox response while maintaining expected currents within the user-required MICROAMPS20 range. The scan is run from -0.50 V to +0.70 V versus Ag/AgCl, encompassing the ferricyanide/ferrocyanide redox couple and the requested potential window. A 100 mV/s scan rate provides a standard initial characterization condition, 5 mV potential increment provides adequate voltammetric resolution, and 10 cycles permit stabilization and assessment of repeatability. Nitrogen purging for 300 s is included to reduce dissolved-oxygen reduction background. The gold electrode is polished before use and the substation should wash and dry electrodes following the run.",
+    "selected_mode_explanation": "The requested analyte, potassium ferricyanide, is to be dissolved directly in a prepared supporting electrolyte and measured in solution. Therefore, analyte_in_electrolyte is the applicable mode. Both potassium chloride and potassium ferricyanide are solids and are assigned to Quantos dispensing; water is the only liquid and is assigned to the liquid pump."
+  },
+  "metadata": {
+    "description": "Cyclic voltammetry characterization of 1.0 mM potassium ferricyanide dissolved in 0.10 M KCl aqueous supporting electrolyte using a 2 mm gold working electrode, platinum wire counter electrode, and Ag/AgCl (3 M KCl) reference electrode.",
+    "experiment_name": "CV_Potassium_Ferricyanide_1mM_in_0p1M_KCl_Au",
+    "experimenter": "CVLab",
+    "report": true,
+    "user_prompt": "Perform a cyclic voltammetry experiment to characterize potassium ferricyanide as an analyte dissolved in the electrolyte (potential window is normally -0.5 V to +0.7 V). The potassium ferricyanide should be prepared in the electrolyte and measured using the electrochemical substation. Use the available gold working electrode (d = 2 mm), platinum counter electrode, and Ag/AgCl in KCL 3M reference electrode. Select appropriate electrolyte composition, potassium ferricyanide concentration, CV parameters, mixing/preparation steps, and safety precautions based on the capabilities and constraints provided in the system context. The resulting experiment must be directly executable by the CVLab platform. For this case, please select MICROAMPS20 for the i_range parameter of the potentiostat.Also, perform 10 cycles."
+  },
+  "platform_checklist": {
+    "experiment_vials_required_per_batch": 1,
+    "liquids_to_load": [
+      {
+        "channel": 1,
+        "name": "Water",
+        "volume_ml": 15
+      }
+    ],
+    "parallel_echem_slots_used": 1,
+    "solids_to_load": [
+      {
+        "cartridge_position": 1,
+        "mass_mg": 111.827,
+        "name": "Potassium chloride",
+        "role": "salt"
+      },
+      {
+        "cartridge_position": 2,
+        "mass_mg": 4.939,
+        "name": "Potassium ferricyanide",
+        "role": "analyte"
+      }
+    ]
+  },
+  "recipe": {
+    "electrode_deposition": {
+      "analyte_name": "",
+      "camera_inspection_after_deposition": false,
+      "deposition_method": "drop_casting",
+      "drying_required": false,
+      "drying_time_seconds": 0,
+      "enabled": false,
+      "sample_volume_ul": 7
+    },
+    "final_volume_ml": 15,
+    "liquids": [
+      {
+        "channel": 1,
+        "dispense_increment_ul": 7,
+        "name": "Water",
+        "volume_ml": 15
+      }
+    ],
+    "mixing_method": "ultrasound",
+    "mixing_time_seconds": 300,
+    "purge": true,
+    "purge_time": 300,
+    "solids": [
+      {
+        "cartridge_position": 1,
+        "mass_mg": 111.827,
+        "molecular_weight_g_mol": 74.5513,
+        "name": "Potassium chloride",
+        "requested_concentration_mol_L": 0.1,
+        "role": "salt"
+      },
+      {
+        "cartridge_position": 2,
+        "mass_mg": 4.939,
+        "molecular_weight_g_mol": 329.2443,
+        "name": "Potassium ferricyanide",
+        "requested_concentration_mol_L": 0.001,
+        "role": "analyte"
+      }
+    ]
+  },
+  "safety_assessment": {
+    "cross_contamination_risks": [
+      "Residual ferricyanide on the gold working electrode, platinum counter electrode, or reference-electrode exterior can affect later redox measurements.",
+      "Residual KCl electrolyte can contaminate subsequent low-ionic-strength experiments.",
+      "Use electrode washing and drying between experiments and use a clean experiment vial."
+    ],
+    "handling_precautions": [
+      "Wear laboratory coat, safety glasses, and compatible chemical-resistant gloves when loading solid cartridges and handling the prepared electrolyte.",
+      "Avoid generating dust when loading potassium ferricyanide into the Quantos cartridge.",
+      "Do not acidify the electrolyte or ferricyanide waste, and do not combine it with acidic waste streams.",
+      "Use clean dedicated tools and vials to avoid contamination of ferricyanide with reducing agents or other electroactive materials.",
+      "Polish, wash, and dry the gold working electrode before measurement; rinse electrodes after the experiment."
+    ],
+    "hazards": [
+      "Potassium ferricyanide is a cyanide coordination complex; it can release highly toxic hydrogen cyanide if strongly acidified or subjected to incompatible chemical treatment.",
+      "Potassium ferricyanide-containing solutions should be protected from unnecessary strong light exposure and incompatible reducing agents.",
+      "Electrical and mechanical hazards are present during electrode polishing, movement, and potentiostat operation."
+    ],
+    "waste_disposal": [
+      "Collect the post-CV electrolyte, rinses, and contaminated consumables in a labeled aqueous ferricyanide/cyanide-complex inorganic waste container.",
+      "Do not dispose of ferricyanide-containing solutions to drain.",
+      "Keep ferricyanide waste segregated from acidic waste to prevent possible hydrogen cyanide formation."
+    ]
+  }
+}

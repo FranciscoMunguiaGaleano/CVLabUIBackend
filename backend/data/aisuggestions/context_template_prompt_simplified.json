@@ -102,7 +102,7 @@
         ],
         "Constraints": {
         "reference_electrode": "Ag/AgCl in KCl 3M",
-        "working_electrode": "Gold (d = 2 mm)",
+        "working_electrode": "Platinum (d = 2 mm)",
         "counter_electrode": "Platinum wire"
       }
       },
@@ -334,7 +334,7 @@
 
 "cv_parameters": {
     "potentiostat_id": 1,
-    "i_range": "MICROAMPS200",
+    "i_range": "AUTO",
     "start_potential_v": 0.0,
     "potential_vertex_v": 0.0,
     "scan_rate_mv_s": 100.0,
@@ -347,16 +347,28 @@
     "polishing_cycles": 0,
     "solvent_type": "aqueous | non-aqueous"
     },
+"CYCLES": {
+    "rule": "Select at 5-10 cycles unless it is not recommendable for the analyte." 
+},
+"REFERENCE_ELECTRODE_MODES":
+{
+  "description": "Pick the right reference electrode depending if the sample is aqueous or non-aqueous",
+  "allowed values": {
+    "Ag/AgCl 3M KCl in H2O": "When is aqueous",
+    "Ag/Ag+ 0.01M AgNO3 in ACN": "When is non-aqueous"
+  }
+},
 "I_RANGE_MODES": {
-    "description": "Allowed current range modes for the OSSCILA potentiostat. The i_range field MUST contain exactly one of these string values. Do not use numeric values and do not use AUTO.",
+    "description": "Allowed current range modes for the OSSCILA potentiostat. The i_range field MUST contain exactly one of these string values. Do not use numeric values.",
     "allowed_values": {
+        "AUTO": "Auto range",
         "MILLIAMPS200": "200 mA current range",
         "MILLIAMPS20": "20 mA current range",
         "MICROAMPS2000": "2000 µA current range",
         "MICROAMPS200": "200 µA current range",
         "MICROAMPS20": "20 µA current range"
     },
-    "rule": "Choose the current range appropriate for the expected current of the experiment. If the expected current is unknown, select the most appropriate conservative range based on the experimental context and explicitly state the assumption in llm_reasoning.assumptions."
+    "rule": "Choose the current range appropriate for the expected current of the experiment, preferable AUTO. If the expected current is unknown, select the most appropriate conservative range based on the experimental context and explicitly state the assumption in llm_reasoning.assumptions."
 },
 
       "platform_checklist": {

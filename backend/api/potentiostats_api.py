@@ -73,9 +73,9 @@ def making_figure(csv_bytes, title, xlabel, ylabel, cycle_label):
         cycles = {}
 
         for row in reader:
-            cycle = int(row[cycle_label])
-            x = float(row[xlabel])
-            y = float(row[ylabel])
+            cycle = int(row['Cycle'])
+            x = float(row['Potential'])
+            y = float(row['Current'])
 
             if cycle not in cycles:
                 cycles[cycle] = {"x": [], "y": []}
@@ -83,35 +83,64 @@ def making_figure(csv_bytes, title, xlabel, ylabel, cycle_label):
             cycles[cycle]["x"].append(x)
             cycles[cycle]["y"].append(y)
 
-        plt.figure()
+        # Give the plot a little more room
+        fig, ax = plt.subplots(figsize=(10, 6))
 
-        #cmap = plt.get_cmap("viridis")
         cmap = plt.get_cmap("Blues")
         n_cycles = len(cycles)
 
         for i, cycle in enumerate(sorted(cycles)):
-            #color = cmap(i / max(n_cycles - 1, 1))
-            color = cmap(0.4 + 0.5 * i / max(n_cycles - 1, 1))
+            color = cmap(
+                0.4 + 0.5 * i / max(n_cycles - 1, 1)
+            )
 
-            plt.plot(
+            ax.plot(
                 cycles[cycle]["x"],
                 cycles[cycle]["y"],
                 color=color,
                 label=f"Cycle {cycle}"
             )
 
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        plt.title(title)
-        plt.grid()
-        plt.legend()
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_title(title)
+        ax.grid()
+
+        # Keep the legend outside the CV plot
+        if n_cycles <= 10:
+            ncol = 1
+        elif n_cycles <= 30:
+            ncol = 2
+        else:
+            ncol = 3
+
+        ax.legend(
+            loc="center left",
+            bbox_to_anchor=(1.02, 0.5),
+            ncol=ncol,
+            fontsize="small",
+            frameon=False
+        )
+
+        # Leave room for the external legend
+        fig.tight_layout(rect=[0, 0, 0.82, 1])
 
         img = io.BytesIO()
-        plt.savefig(img, format="png", bbox_inches="tight")
-        plt.close("all")
+        fig.savefig(
+            img,
+            format="png",
+            bbox_inches="tight"
+        )
+
+        plt.close(fig)
         img.seek(0)
+
         return img
+
     except Exception:
+        return error_figure("Plot Error", xlabel, ylabel)
+    except Exception as e:
+        #print(e)
         return error_figure("Plot Error", xlabel, ylabel)
 
 
@@ -198,16 +227,17 @@ def cyclic_voltammetry_plot(p_id):
     key = (p_id, "cv")
     try:
         result = LAST_RESULTS.get(key)
-
+        #print(LAST_RESULTS)
+        #print(result)
         if result is None:
             img = error_figure("No CV Data", "Potential", "Current")
             return send_file(img, mimetype="image/png")
-
+     
         img = making_figure(
             result,
-            title=f"Cyclic Voltammetry (P{p_id})",
-            xlabel="Potential",
-            ylabel="Current",
+            title=f"Cyclic Voltammetry",
+            xlabel="Potential (V)",
+            ylabel="Current (A)",
             cycle_label="Cycle"
         )
 
@@ -216,7 +246,8 @@ def cyclic_voltammetry_plot(p_id):
 
         return send_file(img, mimetype="image/png")
 
-    except Exception:
+    except Exception as e:
+        print(f"ERROR: {e}")
         LAST_RESULTS.pop(key, None)
         img = error_figure("CV Plot Error", "Potential", "Current")
         return send_file(img, mimetype="image/png")
