@@ -20,6 +20,7 @@ import logging
 import shutil
 import base64
 from datetime import date
+from automated_analysis import run_analysis
 
 
 
@@ -3106,14 +3107,7 @@ def json_to_pdf(
     # Main CV measurements
     # ------------------------------------------------------------
 
-    add_human_measurement(
-        "Anodic peak potential",
-        anodic.get(
-            "potential_v"
-        ),
-        "V",
-        4,
-    )
+    add_human_measurement("Anodic peak potential",anodic.get("potential_v"),"V",4,)
 
     add_human_measurement(
         "Anodic peak current",
@@ -3211,24 +3205,19 @@ def json_to_pdf(
                     ),
                 ]
             )
-
     # ------------------------------------------------------------
     # Add Human Evaluation table
     # ------------------------------------------------------------
 
-    story.append(
-        make_table(
-            human_rows,
-            [220, 160, 120],
-        )
-    )
-   # ------------------------------------------------------------
+    story.append(make_table(human_rows,[220, 160, 120],))
+
+
+
+    # ------------------------------------------------------------
     # 7. pH AND TEMPERATURE
     # ------------------------------------------------------------
 
-    add_section(
-        "4.3 pH and Temperature"
-    )
+    add_section("4.3 pH and Temperature")
 
     ph_rows = [
         [
@@ -3272,10 +3261,78 @@ def json_to_pdf(
             "ph_interpretation"
         ),
     )
+    ##hereee
+    # ------------------------------------------------------------
+    # Automated Evaluation 
+    # ------------------------------------------------------------
+    
+    try:
+        ##TODO 
+        automated_analysis_results = run_analysis(paths["data"] / "cv_raw.json",paths["imgs"])
+        #
+        #print(automated_analysis_results)
+        story.append(PageBreak())
+        add_section("4.4 Automated Analysis")
+        #cv_analysis_image = image_paths.get("cv_analysis.png")
+        #print(cv_analysis_image)
+   
+        if Path(paths["imgs"] / "cv_analysis.png").exists():
+            #story.append(
+            #    Paragraph(
+            #        "<b>CV Plot</b>",
+            #        styles["Heading3"],
+            #    )
+            #)
+            story.append(Image(str(paths["imgs"] / "cv_analysis.png"),width=420,height=245,))
+
+        else:
+            story.append(
+                Paragraph(
+                    "CV plot not available.",
+                    styles["BodyText"],
+                )
+            )
+        automated_cv_analysis_rows = [
+        [
+            "Measurement",
+            "Value",
+            "Unit",
+        ]
+    ]
+        for key, item in automated_analysis_results.items():
+            if isinstance(
+                item,
+                (
+                    str,
+                    int,
+                    float,
+                    bool,
+                ),
+            ):
+
+                label = (str(key).replace("_", " ").title())
+                automated_cv_analysis_rows.append(
+                    [
+                        label,
+                        number(item,decimals=7),
+                        "A" if "Current" in label else "V",
+                    ]
+                )
+
+        story.append(
+            make_table(
+                automated_cv_analysis_rows,
+                [250, 170, 80],
+            )
+        )
+
+    except Exception as e:
+        print(F"[ERROR] {e}")
+        #Put in the PDF that the test failed 
     # ------------------------------------------------------------
     # 8. SCIENTIFIC INTERPRETATION
     # ------------------------------------------------------------
-
+    story.append(PageBreak())
     add_section(
         "5. Scientific Interpretation"
     )
@@ -3307,12 +3364,10 @@ def json_to_pdf(
             "reversibility_assessment"
         ),
     )
-
-    story.append(PageBreak())
     # ------------------------------------------------------------
     # 9. DATA QUALITY
     # ------------------------------------------------------------
-
+    
     add_section(
         "6. Data Quality"
     )
@@ -3369,7 +3424,7 @@ def json_to_pdf(
     # ------------------------------------------------------------
     # 7. ELECTRODE IMAGES
     # ------------------------------------------------------------
-
+    story.append(PageBreak())
     add_section(
         "7. Electrode Images"
     )
@@ -3757,36 +3812,36 @@ if __name__ == "__main__":
     #        break
     #sys.exit("DEBUG: CV test routine executed succesfully.")
     ##########################################ONLY report form json##########################
-    """     # Load CV data 
-        with open(paths["data"] / "cv_raw.json", "r", encoding="utf-8") as f: 
-            cv_data = json.load(f) 
-        # Load pH data 
-        with open(paths["data"] / "ph_measurements.json", "r", encoding="utf-8") as f: 
-            ph_data = json.load(f) 
-        # Load dispensed masses 
-        with open(paths["data"] / "dispensed_masses.json", "r", encoding="utf-8") as f: 
-            dispensed_masses = json.load(f) 
-            # Load report raw data 
-        with open(paths["data"] / "report_raw_data.json", "r", encoding="utf-8") as f: 
-            report_data = json.load(f) 
-        # Build results_data exactly as expected by the report 
-        results_data = { "cv_raw": cv_data, 
-                        "ph_measurements": ph_data, 
-                        "images": { "electrode_before": paths["imgs"] / "electrode_before.png", "electrode_after": paths["imgs"] / "electrode_after.png", 
-                                "CV": paths["imgs"] / "CV.png", }, 
-                        "dispensed_masses": dispensed_masses, 
-                        "is_simulated": False, } 
-        # Generate the LLM report and/or PDF 
-        #report_data = generate_report( input_data=experiment, results_data=results_data, paths=paths, model="terra")
-        #sys.exit("DEBUG: JSON files loaded successfully. Stopping before experiment execution.")
-        report_from_json(
-            input_data=experiment,
-            results_data=results_data,
-            paths=paths,
-            model="terra",
-            report_data=report_data
-        )
-        sys.exit("DEBUG: JSON files loaded successfully. Stopping before experiment execution.")     """
+    # Load CV data 
+    with open(paths["data"] / "cv_raw.json", "r", encoding="utf-8") as f: 
+        cv_data = json.load(f) 
+    # Load pH data 
+    with open(paths["data"] / "ph_measurements.json", "r", encoding="utf-8") as f: 
+        ph_data = json.load(f) 
+    # Load dispensed masses 
+    with open(paths["data"] / "dispensed_masses.json", "r", encoding="utf-8") as f: 
+        dispensed_masses = json.load(f) 
+        # Load report raw data 
+    with open(paths["data"] / "report_raw_data.json", "r", encoding="utf-8") as f: 
+        report_data = json.load(f) 
+    # Build results_data exactly as expected by the report 
+    results_data = { "cv_raw": cv_data, 
+                    "ph_measurements": ph_data, 
+                    "images": { "electrode_before": paths["imgs"] / "electrode_before.png", "electrode_after": paths["imgs"] / "electrode_after.png", 
+                            "CV": paths["imgs"] / "CV.png", }, 
+                    "dispensed_masses": dispensed_masses, 
+                    "is_simulated": False, } 
+    # Generate the LLM report and/or PDF 
+    #report_data = generate_report( input_data=experiment, results_data=results_data, paths=paths, model="terra")
+    #sys.exit("DEBUG: JSON files loaded successfully. Stopping before experiment execution.")
+    report_from_json(
+        input_data=experiment,
+        results_data=results_data,
+        paths=paths,
+        model="terra",
+        report_data=report_data
+    )
+    sys.exit("DEBUG: JSON files loaded successfully. Stopping before experiment execution.") 
     ######################################################################################################
     if experiment["experiment_mode"] == "analyte_in_electrolyte":
         echem_slot=2    
