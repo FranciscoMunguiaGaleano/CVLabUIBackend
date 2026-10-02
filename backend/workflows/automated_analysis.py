@@ -19,7 +19,24 @@ def scientific(value, precision=3):
         return "None"
     return f"{value:.{precision}e}"
 
+def find_baseline_extent(x, y, end_search_idx, seed_frac=0.05, min_seed=10, k=2):
+    """
+    Returns the index at which the curvature first exceeds `k` times the
+    robust noise floor measured over an initial seed window, searched up
+    to `end_search_idx` (e.g. the index of the peak).
+    """
+    n = len(x)
+    seed_n = max(min_seed, int(seed_frac * n))
+    dy = np.gradient(y, x)
+    d2y = np.gradient(dy, x)
 
+    seed = d2y[1:seed_n]  # skip index 0 (edge artefact from np.gradient)
+    noise_scale = 1.4826 * np.median(np.abs(seed - np.median(seed)))  # MAD -> std-equivalent
+    threshold = k * noise_scale
+
+    search = d2y[seed_n:end_search_idx]
+    exceed = np.where(np.abs(search) > threshold)[0]
+    return seed_n + exceed[0] if len(exceed) else seed_n
 # ----------------------------------------------------------------------
 # 1. Load data
 # ----------------------------------------------------------------------
@@ -36,53 +53,10 @@ def run_analysis(file_name,save_path):
     min_x_index = np.argmin(x)   # switching potential index (most negative)
     max_x_index = np.argmax(x)   # switching potential index (most positive)
 
-    # ----------------------------------------------------------------------
-    # 2. Automatically find the extent of the flat baseline region
-    # ----------------------------------------------------------------------
-    # Rather than hand-picking "how many points are baseline", detect where
-    # the curvature (2nd derivative) first rises meaningfully above its own
-    # noise floor. The noise floor is estimated (via MAD, robust to outliers)
-    # from a short seed region at the very start of the sweep, which is
-    # assumed to be baseline almost by definition (nothing happens before
-    # the sweep has even started moving away from its initial potential).
-    def find_baseline_extent(x, y, end_search_idx, seed_frac=0.05, min_seed=10, k=6):
-        """
-        Returns the index at which the curvature first exceeds `k` times the
-        robust noise floor measured over an initial seed window, searched up
-        to `end_search_idx` (e.g. the index of the peak).
-        """
-        n = len(x)
-        seed_n = max(min_seed, int(seed_frac * n))
-        dy = np.gradient(y, x)
-        d2y = np.gradient(dy, x)
 
-        seed = d2y[1:seed_n]  # skip index 0 (edge artefact from np.gradient)
-        noise_scale = 1.4826 * np.median(np.abs(seed - np.median(seed)))  # MAD -> std-equivalent
-        threshold = k * noise_scale
-
-        search = d2y[seed_n:end_search_idx]
-        exceed = np.where(np.abs(search) > threshold)[0]
-        return seed_n + exceed[0] if len(exceed) else seed_n
-
-
-    ipa_idx_guess = np.argmax(y)  # rough peak location just to bound the search
-    n_baseline_pts = find_baseline_extent(x, y, end_search_idx=ipa_idx_guess)
-    print(f"Auto-detected forward baseline extent: {scientific(n_baseline_pts)} points (x up to {scientific(x[n_baseline_pts])} V)")
-    # Same idea, run on the reverse sweep: starting right after the positive
-    # switching potential (max_x_index) and walking forward in index (which
-    # moves toward more negative x on the return branch) toward the cathodic
-    # peak. This gives a baseline for the reduction wave, analogous to the
-    # one above for the oxidation wave.
-    ipc_idx_guess = max_x_index + np.argmin(y[max_x_index:])  # rough cathodic peak location
-    n_rev_baseline_pts = find_baseline_extent(
-        x[max_x_index:], y[max_x_index:], end_search_idx=ipc_idx_guess - max_x_index
-    )
-    rev_baseline_end_idx = max_x_index + n_rev_baseline_pts
-    print(f"Auto-detected reverse baseline extent: {scientific(n_rev_baseline_pts)} points "
-        f"(x down to {scientific(x[rev_baseline_end_idx])} V)")
 
     # ----------------------------------------------------------------------
-    # 3. Peak detection with find_peaks (replaces the brentq zero-crossing loop)
+    # Peak detection with find_peaks 
     # ----------------------------------------------------------------------
     # `prominence` filters out noise-level wiggles; tune this relative to your
     # current's noise floor (e.g. a few % of the peak height, or a multiple
@@ -98,8 +72,6 @@ def run_analysis(file_name,save_path):
             "No peaks found — try lowering `prominence`, or check your data "
             "columns/units."
         )
-        ipa_idx = ipa_idx_guess
-        ipc_idx = ipc_idx_guess
     elif len(neg_peak_idx)==0:
         print("no Cathodic peak found")
 
@@ -108,7 +80,7 @@ def run_analysis(file_name,save_path):
         #ipc_idx = neg_peak_idx[np.argmax(neg_props["prominences"])]
         ipc_idx = None
         ipc_x = None
-        ipc_y = None
+        ipc_y = None 
     else:
         ipa_idx = pos_peak_idx[np.argmax(pos_props["prominences"])]
         ipc_idx = neg_peak_idx[np.argmax(neg_props["prominences"])]
@@ -119,7 +91,23 @@ def run_analysis(file_name,save_path):
     ipa_x, ipa_y = x[ipa_idx], y[ipa_idx]
     print(f"Anodic peak (raw, not baseline-corrected):   Epa={scientific(ipa_x)} V, Ipa={scientific(ipa_y)}")
 
+    # ----------------------------------------------------------------------
+    # Automatically find the extent of the flat baseline region
+    # ----------------------------------------------------------------------
 
+
+
+    n_baseline_pts = find_baseline_extent(x, y, end_search_idx=int(ipa_idx))
+    print(f"Auto-detected forward baseline extent: {scientific(n_baseline_pts)} points (x up to {scientific(x[n_baseline_pts])} V)")
+    
+    #reverse sweep
+    if len(neg_peak_idx) != 0:
+        n_rev_baseline_pts = find_baseline_extent(
+            x[max_x_index:], y[max_x_index:], end_search_idx=ipc_idx - max_x_index
+        )
+        rev_baseline_end_idx = max_x_index + n_rev_baseline_pts
+        print(f"Auto-detected reverse baseline extent: {scientific(n_rev_baseline_pts)} points "
+            f"(x down to {scientific(x[rev_baseline_end_idx])} V)")
     # ----------------------------------------------------------------------
     # 4. Baseline fits, using the auto-detected extents from step 2
     # ----------------------------------------------------------------------
@@ -175,7 +163,7 @@ def run_analysis(file_name,save_path):
     y_smooth = savgol_filter(y, window_length=15, polyorder=3)
 
     # Tangent at the steepest point between the scan start and the anodic peak.
-    forward_gradient = np.gradient(y_smooth[:ipa_idx_guess + 1], x[:ipa_idx_guess + 1])
+    forward_gradient = np.gradient(y_smooth[:ipa_idx + 1], x[:ipa_idx + 1])
     max_gradient_idx = int(np.argmax(forward_gradient))
     max_gradient_x = x[max_gradient_idx]
     max_gradient_y = y_smooth[max_gradient_idx]
@@ -346,4 +334,4 @@ def run_analysis(file_name,save_path):
     return output
 
 if __name__ == "__main__":
-    run_analysis("cv_raw_vit_c.json",".")
+    run_analysis("cv_raw_problem_child.json",".")
