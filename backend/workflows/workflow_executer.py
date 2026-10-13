@@ -33,6 +33,7 @@ TOP_CAROUSEL_CONF = BASE_PATH / "data" / "routines" / "top_carousel" / "top_caro
 BOTTOM_CAROUSEL_CONF = BASE_PATH / "data" / "routines" / "bottom_carousel" / "bottom_carousel.json"
 ARM_ROUTINES_PATH = BASE_PATH / "data" / "routines" / "arm"
 ECHEM_ROUTINES_PATH = BASE_PATH / "data" / "routines" / "echem"
+PIPETTE_ROUTINES_PATH = BASE_PATH / "data" / "routines" / "pipette"
 
 #CWD_PATH = os.getcwd()
 #CONF_PATH = Path(os.getcwd()+'/../data/conf/devices_urls.json') 
@@ -123,6 +124,20 @@ echem = Echem(
         plc_port=config.PLC_PORT,
         stirrer_url=config.STIRRER_URL,
         stirrer_port=config.STIRRER_PORT)  
+
+pipette_bot = Echem(
+        name="Echem", 
+        echem_url=config.ECHEM_URL, 
+        echem_aux_url=config.ECHEM_AUX_URL, 
+        echem_aux_port=config.ECHEM_AUX_PORT,
+        pipette_url=config.PIPETTE_URL, 
+        pipette_aux_url=config.PIPETTE_AUX_URL,
+        pipette_aux_port=config.PIPETTE_AUX_PORT, 
+        plc_url=config.PLC_URL,
+        plc_port=config.PLC_PORT,
+        stirrer_url=config.STIRRER_URL,
+        stirrer_port=config.STIRRER_PORT)  
+
 capper = Capper(
         name="Capper",
         capper_url=config.PLC_URL,
@@ -148,7 +163,7 @@ liquids_dispenser = SyringePump(
 top_carousel = TopCarousel(
     name="Top Carousel",
     carousel_url=config.TOP_CAROUSEL_URL,
-    carousel_port=config.TOP_CAROUSEL_URL,
+    carousel_port=config.TOP_CAROUSEL_PORT,
     conf_file=TOP_CAROUSEL_CONF
 )
 
@@ -265,46 +280,164 @@ def truncate_float(number, digits):
     return trunc(number * factor) / factor
 
 def load_arm_routine(name):
-
     path = os.path.join(ARM_ROUTINES_PATH, name)
-
     if not os.path.isfile(path):
-
         print("[ERROR] Arm routines not found.")
-
     try:
-
         with open(path, "r") as f:
             data = json.load(f)
-
         gcodes = data.get("GCODES", [])
-
         return gcodes
-
     except Exception as e:
         print(F"[ERROR] {e}")
         return
     
 def load_echem_routine(name):
-
     path = os.path.join(ECHEM_ROUTINES_PATH, name)
-
     if not os.path.isfile(path):
-
         print("[ERROR] Arm routines not found.")
-
     try:
-
         with open(path, "r") as f:
             data = json.load(f)
-
         gcodes = data.get("GCODES", [])
-
         return gcodes
-
     except Exception as e:
         print(F"[ERROR] {e}")
         return
+
+def load_pipette_routine(name):
+    path = os.path.join(PIPETTE_ROUTINES_PATH, name)
+    if not os.path.isfile(path):
+        print("[ERROR] Arm routines not found.")
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+        gcodes = data.get("GCODES", [])
+        return gcodes
+    except Exception as e:
+        print(F"[ERROR] {e}")
+        return
+    
+# ---------------------------------------------------
+# Helpers Pipette bot
+# ---------------------------------------------------
+def get_current_pipette_position():
+    """
+    Reads current XYZ position from robot status.
+    """
+    msg = pipette_bot.pipette_arm_status()
+    pattern = r"X(?P<X>-?\d+(?:\.\d+)?)Y(?P<Y>-?\d+(?:\.\d+)?)Z(?P<Z>-?\d+(?:\.\d+)?)"
+    match = re.search(pattern, msg["response"])
+    if match:
+        X = truncate_float(float(match.group("X")),3)
+        Y = truncate_float(float(match.group("Y")),3)
+        Z = truncate_float(float(match.group("Z")),3)
+    return X, Y, Z
+
+def extract_axis_pipette(gcode, axis):
+    """
+    Extract axis from GCODE.
+
+    Example:
+        extract_axis("G1 X10 Y20", "X")
+    """
+    match = re.search(rf"{axis}(-?\d+\.?\d*)", gcode)
+    if match:
+        return float(match.group(1))
+    return None
+
+def ensure_feedrate_pipette(gcode, default_feedrate=500):
+    """
+    Automatically add feedrate if missing.
+    """
+    if gcode.startswith("G1") and "F" not in gcode:
+        gcode += f" F{default_feedrate}"
+    return gcode
+
+def update_pipette_cached_position(gcode):
+    """
+    Updates cached arm coordinates from G1 commands.
+    """
+    if not gcode.startswith("G1"):
+        return
+    x = extract_axis_pipette(gcode, "X")
+    y = extract_axis_pipette(gcode, "Y")
+    z = extract_axis_pipette(gcode, "Z")
+    if x is not None:
+        pipette_bot.pipette_arm_set_X_axis(truncate_float(x, 3))
+    if y is not None:
+        pass
+    if z is not None:
+        pipette_bot.pipette_arm_set_Z_axis(truncate_float(z, 3))
+
+def process_special_pipette_commands(gcode):
+    """
+    Handles custom M commands.
+    """
+    #def pipette_home(self): return self._pipette.pipette_aux.homing_servos()
+    #def pipette_eject_tip(self): return self._pipette.pipette_aux.eject_tip()
+    #def pipette_preload(self): return self._pipette.pipette_aux.preload_pipette()
+    #def pipette_load(self): return self._pipette.pipette_aux.load_pipette()
+    #def pipette_unload(self): return self._pipette.pipette_aux.unload_pipette()
+    #def pipette_set_speed(self, speed): return self._pipette.pipette_aux.set_speed(speed)
+    command = gcode.strip()
+    if command == "M101":
+        ##TODO PRE-LOAD PIPETTE
+        pipette_bot.pipette_preload()
+        return {"ok": True,"message": "[INFO] Pre-loading pipette"}
+    elif command == "M102":
+        pipette_bot.pipette_load()
+        return {"ok": True,"message": "[INFO] Loading pipette"}
+    elif command == "M103":
+        pipette_bot.pipette_unload()
+        return {"ok": True,"message": "[INFO] Dispensing"}
+    elif command == "M104":
+        pipette_bot.pipette_eject_tip()
+        return {"ok": True,"message": "[INFO] Ejecting tip"}
+    return None
+
+def send_pipette_robot_gcode(gcode):
+    """
+    Centralized GCODE handler.
+    Features:
+    - Handles M10n/M20n
+    - Injects feedrate automatically
+    - Updates cached XYZ
+    """
+    # Handle custom commands first
+    special = process_special_pipette_commands(gcode)
+    if special:
+        return special
+    # Ensure feedrate exists
+    gcode = ensure_feedrate_pipette(gcode)
+    # Send to robot
+    response = pipette_bot.pipette_arm_send_gcode(gcode)
+    #print(response)
+    # Update cached XYZ
+    update_pipette_cached_position(gcode)
+    return {"ok": True,"gcode": gcode}
+
+def execute_routine_pipette_robot(routine):
+    gcodes = load_pipette_routine(routine)
+    for gcode in gcodes:
+        send_pipette_robot_gcode(gcode);pipette_bot.pipette_wait_until_idle()
+        time.sleep(0.1)
+        pipette_bot.pipette_wait_until_idle()
+        time.sleep(0.1)
+        pipette_bot.pipette_wait_until_idle()
+        time.sleep(0.1)
+
+def home_pipette():
+    pipette_bot.pipette_arm_home();pipette_bot.pipette_wait_until_idle()
+    time.sleep(0.1)
+    pipette_bot.pipette_wait_until_idle()
+    time.sleep(0.1)
+    pipette_bot.pipette_wait_until_idle()
+    #pipette_bot.pipette_arm_home();pipette_bot.pipette_wait_until_idle()
+    #pipette_bot.pipette_arm_home();pipette_bot.pipette_wait_until_idle()
+    pipette_bot.pipette_arm_set_X_axis(0.0)
+    pipette_bot.pipette_arm_set_Z_axis(0.0)
+    
 # ---------------------------------------------------
 # Helpers Arm
 # ---------------------------------------------------
@@ -576,8 +709,8 @@ def send_robot_gcode_echem(gcode):
 def home_echem():
     #send_robot_gcode_echem("G1 X10.0 Y0.0 Z0.0");echem.wait_until_idle()
     echem.home();echem.wait_until_idle()
-    #send_robot_gcode_echem("G1 X11.0 Y0.0 Z0.0");echem.wait_until_idle()
-    #echem.home();echem.wait_until_idle()
+    send_robot_gcode_echem("G1 X11.0 Y0.0 Z0.0");echem.wait_until_idle()
+    echem.home();echem.wait_until_idle()
     #send_robot_gcode_echem("G1 X11.0 Y0.0 Z0.0");echem.wait_until_idle()
     ##echem.home();echem.wait_until_idle()
     #send_robot_gcode_echem("G1 X11.0 Y0.0 Z0.0");echem.wait_until_idle()
@@ -3753,9 +3886,125 @@ def photograph_electrode(electrode_number=1, file_name=""):
     home_echem()
     #home_echem()
     return file_name
+
+###we casting
+def cast_working_electrode(electrode_num=2,carousel_slot=0, mixing_time=60, mixing=True):
+    print("[INFO] Homing top carousel.")
+    top_carousel.home();time.sleep(10)
+    print(F"[INFO] Moving top carousel to position {carousel_slot}.")
+    top_carousel.move_absolute(str(2));time.sleep(5) 
+    top_carousel.move_absolute(str(carousel_slot));time.sleep(3) 
+    #print("[INFO] ")
+    print("[INFO] Homing echem.")
+    home_echem()
+    print("[INFO] Raising electrodes")
+    pipette_bot.lower_electrodes();time.sleep(2)
+    #home_arm()
+    print("[INFO] homing pipette")
+    home_pipette() 
+    # home_top_carousel
+    # move carousel to pos 0
+    home_arm()
+    print("[INFO] Picking vial from top carousel.")
+    execute_routine_arm(f"pick_vial_from_top_carousel.json")
+    # move vial to mixer
+    print("[INFO] Placing vial in mixer")
+    execute_routine_arm(f"place_vial_in_mixer_{electrode_num}.json")
+    # lower lift
+    print("[INFO] ")
+    # mix
+    print("[INFO] ")
+    # lift mixe cap
+    print("[INFO] ")
+    input("TODO MIXING LOGIC")
+    # pick vial from mixer
+    print("[INFO] Picking vial from mixer")
+    execute_routine_arm(f"pick_vial_from_mixer_{electrode_num}.json")
+    # place vial in capper
+    print("[INFO] Placing vial in capper")
+    execute_routine_arm(f"place_vial_in_capper.json")
+    # decap
+    print("[INFO] Decapping")
+    input("TODO DECAPPING LOGIC DO IT MANUALLY")
+    # pick vial from capper
+    print("[INFO] Picking uncapped vial")
+    execute_routine_arm(f"pick_vial_from_capper.json")
+    # place vial in top carousel
+    print("[INFO] Placing vial in carousel")
+    execute_routine_arm(f"place_vial_in_top_carousel.json")
+    # move top carousel to sampling position
+    print("[INFO] Picking tip.")
+    # move echem to under tip 00
+    execute_routine_echem("under_pipette_tip_00.json")
+    # pick tip
+    execute_routine_pipette_robot("pick_tip_00.json")
+    print("[INFO] Carousel to sampling position")
+    top_carousel.move_absolute('sampling');time.sleep(10)
+    #home pipette to increase precision
+    home_pipette()
+    print("[INFO] Sampling material")
+    # move pipette over sampling vial
+    execute_routine_pipette_robot("above_sampling_vial.json")
+    # pre load pipette
+    pipette_bot.pipette_preload()
+    # move pipette tip inside vial
+    execute_routine_pipette_robot("inside_sampling_vial.json")
+    # load
+    pipette_bot.pipette_load();time.sleep(5)
+    # move pipette over sampling vial
+    execute_routine_pipette_robot("above_sampling_vial.json")
+    # move pipette over  electrode 2
+    print("[INFO] Casting electorde")
+    execute_routine_pipette_robot(F"above_electrode_{electrode_num}.json")
+    # move echem electrode under pipette
+    execute_routine_echem(F"under_pipette_{electrode_num}.json")
+    # sample
+    pipette_bot.pipette_unload();time.sleep(3)
+    print("[INFO] Disposing tip")
+    # move pipette over tips deposit
+    execute_routine_pipette_robot("above_tips_deposit.json")
+    # eject tip
+    pipette_bot.pipette_eject_tip()
+    # move vial to zero
+    execute_routine_pipette_robot("zero.json")
+    # move carousel to pos 0
+    print(F"[INFO] Moving top carousel to position {carousel_slot}.")
+    top_carousel.move_absolute(str(carousel_slot));time.sleep(10)
+    # prick vial from top carousel
+    print("[INFO] Picking uncapped vial from carousel.")
+    execute_routine_arm(f"pick_vial_from_top_carousel.json")
+    # place vial in capper
+    print("[INFO] Placing uncapped vial in capper")
+    execute_routine_arm(f"place_vial_in_capper.json")
+    # cap
+    print("[INFO] Capping vial")
+    input("INPLEMENT LOGIC CALL CAPPING MANUALLY")
+    # pcik vial from capper
+    print("[INFO] picking vial from capper")
+    execute_routine_arm(f"pick_vial_from_capper.json")
+    # place vial in top carousel
+    print("[INFO] Placing vial in top carousel")
+    execute_routine_arm(f"place_vial_in_top_carousel.json")
+    # home arm 
+    print("[INFO] Homing everything")
+    home_arm()
+    # home pipette
+    home_pipette()
+    # home echem
+    home_echem()
+    
 if __name__ == "__main__":
     # 1. Initialize workflow paths and load user script
-    experiment, paths = load_experiment()
+    #experiment, paths = load_experiment()
+    #if experiment["experiment_mode"] == "analyte_on_electrode":
+    #echem.raise_electrodes();time.sleep(2)# sta voltiado lol
+    #top_carousel.move_absolute('sampling');time.sleep(10)
+    #echem.lower_electrodes();time.sleep(2)
+    #sys.exit()
+    if True:
+        cast_working_electrode()
+        echem.raise_electrodes();time.sleep(2)
+        sys.exit()
     #echem_slot=2
     #home_echem()
     #print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
