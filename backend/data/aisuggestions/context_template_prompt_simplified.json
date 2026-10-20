@@ -108,7 +108,7 @@
       },
 
       "analyte_on_working_electrode": {
-        "definition": "The analyte is deposited onto the Gold working electrode (d = 2 mm) rather than remaining dissolved in the electrolyte during the measurement. The electrolyte must first be prepared inside the vial. The analyte sample or ink is then transferred to the working electrode and cast/deposited onto it. The deposited material must be allowed to dry for the specified time before electrochemical measurement when drying is required.",
+        "definition": "The analyte is deposited onto the available working electrode (given by the user or pick one if not given) rather than remaining dissolved in the electrolyte during the measurement. The electrolyte must first be prepared inside the vial, provide the material and mass required for this e.g., 0.01M KCl. The analyte sample or ink is then transferred to the working electrode and cast/deposited onto it. The deposited material must be allowed to dry for the specified time before electrochemical measurement when drying is required.",
         "required_fields": [
           "metadata",
           "recipe",
@@ -121,7 +121,7 @@
           "Prepare the electrolyte inside the appropriate vial.",
           "Mix the electrolyte until homogeneous.",
           "Prepare or identify the analyte ink/sample.",
-          "Transfer the specified sample volume to the Gold working electrode.",
+          "Transfer the specified sample volume to the working electrode.",
           "Cast/deposit the analyte onto the working electrode.",
           "Allow the deposited material to dry for the specified drying time.",
           "Inspect the working electrode if camera inspection is appropriate.",
@@ -246,16 +246,17 @@
 
       "rules": [
         "Prepare the electrolyte before electrode deposition.",
-        "The electrolyte preparation must follow the same concentration, molecular-weight, mass, volume, and hardware rules as analyte_in_electrolyte.",
-        "Identify the analyte material being deposited onto the Gold working electrode.",
-        "For ink-based samples such as PEDOT:PSS, describe the sample as an analyte or ink_component rather than incorrectly treating it as the supporting electrolyte.",
-        "Specify the sample or ink volume used for casting.",
-        "Specify the deposition/casting operation.",
-        "Specify drying time when the deposited material requires drying before CV.",
-        "If drying conditions are not provided by the system context, make the assumption explicit rather than presenting it as a guaranteed hardware capability.",
-        "Use camera inspection of the working electrode when useful and available.",
-        "Do not claim that a material has been successfully deposited unless the planned operation can actually be performed by the platform.",
-        "Report electrolyte preparation calculations separately from analyte/ink deposition information."
+        "For analyte_on_working_electrode, select an appropriate supporting electrolyte and concentration based on the analyte and experimental requirements. Calculate the required mass of the solid electrolyte, dispense it using Quantos, add compatible solvent to a final volume of 15 mL, and mix until homogeneous. Never use water alone as a substitute for the supporting electrolyte.",
+        "Identify the electrolyte explicitly.",
+        "Identify each electrolyte component explicitly.",
+        "Calculate analyte mass from requested analyte concentration, molecular weight, and final volume when the analyte is a solid.",
+        "Calculate electrolyte component masses from their requested concentrations and molecular weights.",
+        "Do not put solid analytes or salts into the liquids array.",
+        "Use Quantos for solid analytes and solid electrolyte components.",
+        "Use the syringe pump only for compatible solvents.",
+        "Mix after reagent addition.",
+        "Ensure total liquid volume does not exceed the final vial volume.",
+        "Report all concentration calculations and assumptions."
       ]
     },
 
@@ -265,7 +266,6 @@
       "Use the Quantos for solid reagents such as KCl and solid ferrocyanide.",
       "Use the liquid pump for compatible solvents such as water.",
       "Prepare electrolytes inside the experiment vial when their components are available as solid reagents and compatible solvents.",
-      "If an electrolyte requires a component that cannot be dispensed by the available hardware, explicitly state that the requested experiment cannot be fully automated.",
       "For an analyte dissolved in the electrolyte, add the analyte using the appropriate dispensing mechanism before the mixing step.",
       "For an analyte deposited on the working electrode, prepare the electrolyte first, then perform the analyte deposition/casting operation.",
       "Include mixing after adding solid reagents so that the prepared solution becomes homogeneous before electrochemical measurement.",
@@ -341,7 +341,7 @@
     "cycles": 1,
     "increment_v": 0.01,
     "reference_electrode": "Ag/AgCl 3M KCl in H2O | Ag/Ag+ 0.01M AgNO3 in ACN",
-    "working_electrode_type": "Gold (d = 2 mm)",
+    "working_electrode_type": "Gold (d = 2 mm) | Platinum (d = 2)",
     "counter_electrode_type": "Platinum wire",
     "polishing": true,
     "polishing_cycles": 0,

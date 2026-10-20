@@ -1,0 +1,141 @@
+{
+  "cv_parameters": {
+    "counter_electrode_type": "Platinum wire",
+    "cycles": 10,
+    "i_range": "AUTO",
+    "increment_v": 0.005,
+    "polishing": false,
+    "polishing_cycles": 0,
+    "potential_vertex_v": 0.8,
+    "potentiostat_id": 1,
+    "reference_electrode": "Ag/AgCl 3M KCl in H2O",
+    "scan_rate_mv_s": 50,
+    "solvent_type": "aqueous",
+    "start_potential_v": -0.2,
+    "working_electrode_type": "Glassy carbon (d = 3 mm)"
+  },
+  "experiment_mode": "analyte_on_working_electrode",
+  "llm_reasoning": {
+    "analyte_preparation_explanation": "Carbon ink is the deposited analyte/ink component. No carbon concentration or molecular weight calculation is appropriate because the user specifies a fixed deposition volume rather than a dissolved analyte concentration, and the carbon-ink composition is not provided. The 10 uL carbon-ink aliquot must be available as an externally supplied sample for manual or validated deposition pipetting; it must not be assigned to the solvent syringe pump.",
+    "assumptions": [
+      "Solid KCl is available in a Quantos-compatible cartridge and water is available through syringe-pump channel 1, as specified by the available platform reagents.",
+      "A clean 3 mm glassy-carbon working electrode is physically available and can be connected to potentiostat 1, despite glassy carbon not being listed among the generic electrode examples.",
+      "A platinum wire counter electrode and an Ag/AgCl reference electrode containing 3 M KCl are physically installed and available.",
+      "Carbon ink is supplied as a ready-to-pipette deposition sample outside the liquid-pump inventory and a suitable pipetting operation is available for the requested 10 uL manual/drop-cast transfer.",
+      "The carbon ink is compatible with ambient drying for 1800 seconds; its safety data sheet must be reviewed before execution because its solvent and binder composition are unspecified.",
+      "No nitrogen purge is used because this is an initial carbon-film characterization in simple supporting electrolyte and the user did not request deoxygenation. Dissolved oxygen may contribute to the cathodic background near the negative limit and should be documented in the report.",
+      "The CV waveform proceeds from -0.20 V to +0.80 V and returns between these limits for exactly 10 cycles under the potentiostat's cyclic-voltammetry method."
+    ],
+    "concentration_calculations": [
+      {
+        "actual_concentration_mol_L": 0.1,
+        "calculation_explanation": "Required moles = 0.100 mol/L × 0.0150 L = 0.00150 mol. Required mass = 0.00150 mol × 74.551 g/mol = 0.167745 g = 167.745 mg. Dispensing 167.745 mg KCl and adding water to a final volume of 15.0 mL gives 0.100 M KCl.",
+        "chemical": "Potassium chloride (KCl)",
+        "final_volume_L": 0.015,
+        "final_volume_ml": 15,
+        "molecular_weight_g_mol": 74.551,
+        "planned_mass_mg": 167.745,
+        "requested_concentration_mol_L": 0.1,
+        "required_moles": 0.0015,
+        "role": "salt",
+        "theoretical_mass_g": 0.167745,
+        "theoretical_mass_mg": 167.745
+      }
+    ],
+    "constraint_validation_summary": "One solid reagent is used, which is within the maximum of eight Quantos cartridges. KCl mass is 167.745 mg, below the 200 mg maximum capacity per cartridge. One compatible liquid solvent channel is used, within the maximum of four channels. Water volume is exactly 15.0 mL, satisfying the mandatory electrolyte-fill requirement and the 15 mL final-volume limit. One experiment vial and one electrochemical slot are required, within platform limits. The Ag/AgCl 3 M KCl aqueous reference and platinum-wire counter electrode are compatible with the aqueous CV configuration. The requested glassy-carbon 3 mm working electrode and externally supplied carbon ink must be physically installed and available at the substation before execution; carbon ink is handled as an externally supplied deposition sample rather than as a syringe-pump liquid.",
+    "drying_explanation": "Allow the carbon-ink coating to dry for 1800 seconds at ambient conditions before electrolyte immersion. This drying interval is a conservative initial condition for a 10 uL drop-cast coating. If the carbon-ink safety data sheet specifies a different drying condition, solvent-compatible ventilation requirement, or maximum temperature, that documented condition takes precedence.",
+    "electrode_deposition_explanation": "Use a clean pipette tip to deposit 10 uL carbon ink onto the center of the 3 mm diameter glassy-carbon working-electrode disk by drop casting. Keep the electrode level during deposition to limit run-off. After drying and camera inspection, immerse the coated working electrode in the prepared 15 mL 0.100 M KCl together with the platinum-wire counter electrode and Ag/AgCl (3 M KCl) reference electrode. Do not polish the coated electrode.",
+    "electrolyte_preparation_explanation": "Dispense 167.745 mg solid KCl from Quantos cartridge position 1 into a clean 20 mL experiment vial. Dispense 15.0 mL water through liquid channel 1. Mix with a stir bar for 300 seconds to dissolve all KCl and produce homogeneous 0.100 M aqueous KCl. The vial receives exactly 15.0 mL solvent, satisfying the electrode-immersion requirement.",
+    "parameter_selection_logic": "A 0.10 M KCl aqueous supporting electrolyte was selected because it provides adequate ionic conductivity and minimizes uncompensated resistance while remaining chemically simple and non-redox-active within the requested potential region. The specified scan starts at -0.20 V and uses +0.80 V versus Ag/AgCl as the positive vertex. A 50 mV/s scan rate is a moderate initial rate suitable for observing capacitive and possible surface-redox behavior of a carbon coating without excessively rapid charging current. A 5 mV potential increment provides approximately 20 data points per 0.10 V and 200 points over the 1.0 V forward sweep. Exactly 10 cycles are specified as requested to assess conditioning and cycle-to-cycle stability of the deposited carbon film. AUTO current range is selected because the current response of the unknown carbon loading and ink formulation cannot be reliably predicted before measurement. Electrode polishing is disabled because polishing after deposition would remove or damage the carbon film.",
+    "selected_mode_explanation": "The experiment is analyte_on_working_electrode because carbon ink is deposited as a 10 uL drop-cast film on the glassy-carbon working electrode and is not dissolved in the KCl electrolyte. The KCl solution is prepared separately in the experiment vial, followed by drying, inspection, immersion, and CV of the coated electrode."
+  },
+  "metadata": {
+    "description": "Cyclic voltammetry characterization of a 10 uL carbon-ink drop-cast film on a 3 mm diameter glassy-carbon working electrode in freshly prepared 0.10 M aqueous KCl supporting electrolyte.",
+    "experiment_name": "Carbon ink coated glassy-carbon electrode CV in 0.10 M KCl",
+    "experimenter": "CVLab",
+    "report": true,
+    "user_prompt": "Perform CV to characterize carbon deposited (10 uL) onto a glassy carbon working electrode (d = 3 mm). Pipette the carbon ink onto the electrode and allow it to dry. Prepare 15 mL of KCl supporting electrolyte using available solid KCl and water. Immerse the coated electrode and perform CV using a platinum counter electrode and Ag/AgCl (3 M KCl) reference electrode. Select a suitable KCl concentration and justified CV settings, starting with a potential window of −0.2 to +0.8 V versus Ag/AgCl and exactly 10 cycles. Verify reagent and hardware availability, follow safety requirements, and return the complete executable configuration in the required JSON schema."
+  },
+  "platform_checklist": {
+    "experiment_vials_required_per_batch": 1,
+    "liquids_to_load": [
+      {
+        "channel": 1,
+        "name": "Water",
+        "volume_ml": 15
+      }
+    ],
+    "parallel_echem_slots_used": 1,
+    "solids_to_load": [
+      {
+        "cartridge_position": 1,
+        "mass_mg": 167.745,
+        "name": "Potassium chloride (KCl)",
+        "role": "salt"
+      }
+    ]
+  },
+  "recipe": {
+    "electrode_deposition": {
+      "analyte_name": "Carbon ink",
+      "camera_inspection_after_deposition": true,
+      "deposition_method": "drop_casting",
+      "drying_required": true,
+      "drying_time_seconds": 1800,
+      "enabled": true,
+      "sample_volume_ul": 10
+    },
+    "final_volume_ml": 15,
+    "liquids": [
+      {
+        "channel": 1,
+        "dispense_increment_ul": 7,
+        "name": "Water",
+        "volume_ml": 15
+      }
+    ],
+    "mixing_method": "stirrer_bars_mixing",
+    "mixing_time_seconds": 300,
+    "purge": false,
+    "purge_time": 0,
+    "solids": [
+      {
+        "cartridge_position": 1,
+        "mass_mg": 167.745,
+        "molecular_weight_g_mol": 74.551,
+        "name": "Potassium chloride (KCl)",
+        "requested_concentration_mol_L": 0.1,
+        "role": "salt"
+      }
+    ]
+  },
+  "safety_assessment": {
+    "cross_contamination_risks": [
+      "Carbon ink can contaminate polishing stations, electrode holders, reference-electrode junctions, and wash vials.",
+      "Use a dedicated pipette tip for carbon ink and avoid contact between the ink-coated electrode and the reference-electrode frit.",
+      "KCl residue can contaminate subsequent non-aqueous experiments; perform the platform aqueous wash-and-dry procedure after this run."
+    ],
+    "handling_precautions": [
+      "Wear laboratory coat, safety glasses, and compatible disposable gloves when handling KCl, carbon ink, electrodes, and electrolyte.",
+      "Review the carbon-ink safety data sheet before dispensing; if the ink contains volatile solvent, dry the coated electrode in a ventilated enclosure compatible with that solvent.",
+      "Load KCl only into the assigned Quantos cartridge position and avoid generating dust.",
+      "Confirm the glassy-carbon working electrode is clean and undamaged before coating; do not polish after the carbon film is deposited.",
+      "Use a clean pipette tip to dispense exactly 10 uL of carbon ink centrally onto the 3 mm glassy-carbon disk.",
+      "Verify that the dried carbon film is intact by camera inspection before immersion.",
+      "Position the platinum counter electrode and Ag/AgCl reference close to, but not touching, the coated working electrode.",
+      "Confirm electrode immersion and electrical connections before starting the CV."
+    ],
+    "hazards": [
+      "Potassium chloride is a low-hazard inorganic salt, but solid dust may irritate eyes, skin, or respiratory tract.",
+      "Carbon ink formulation is unspecified and may contain volatile or flammable organic solvents, binders, nanocarbon, or particulate carbon.",
+      "The platinum counter electrode, glassy-carbon working electrode, and Ag/AgCl reference electrode are fragile and can be damaged by collision or improper handling.",
+      "The applied positive potential may generate small electrochemical oxidation currents; do not exceed the specified potential window."
+    ],
+    "waste_disposal": [
+      "Collect used KCl electrolyte and any carbon particles as aqueous electrochemical waste according to local laboratory procedures.",
+      "Dispose of carbon-ink-contaminated pipette tips, wipes, and gloves as solid chemical waste according to the ink safety data sheet.",
+      "Do not return used electrolyte to reagent bottles.",
+      "Rinse electrodes with water after measurement and collect rinsate as electrochemical aqueous waste when carbon residue is present."
+    ]
+  }
+}
