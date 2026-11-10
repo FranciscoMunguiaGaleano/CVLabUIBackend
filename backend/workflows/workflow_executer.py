@@ -1020,7 +1020,167 @@ def prepare_sample(
     home_arm()
     weights= [weight_salt, weight_analyte]
     return weights
+###################
+####################
 
+def prepare_blank(
+        carousel_slot=0, 
+        solids={1:["NaCl",10, "Salt"],2:["Ferrocinade",1, "Analyte"]}, 
+        liquids={1:["Water",10, "Solvent"]},
+        mix_ultrasound=False, 
+        mixing_time=60,
+        experiment={},
+        only_electrolyte= False):
+    weight_salt = 0.0 
+    weight_analyte = 0.0
+    #############################
+    # Electrolite preparation workflow introduction
+    ############################
+    print(F"[INFO] Preparing an electrolite from carousel slot {carousel_slot} with: ")
+    for key in solids:
+        print(F"[INFO] {solids[key][1]} mg of {solids[key][0]}")
+    print("[INFO] and")
+    for key in liquids:
+        print(F"[INFO] {liquids[key][1]} mL of {liquids[key][0]}")
+    print("[INFO] Homing arm")
+    if mix_ultrasound:
+        print(F"[INFO] Mixing sample in ultrasound bath for {mixing_time} seconds")
+    home_arm()
+    print("[INFO] Homing echem")
+    home_echem()
+    print("[INFO] Homing bottom carousel")
+    bottom_carousel.home();time.sleep(10)
+    print(F"[INFO] Moving bottom carousel to position {carousel_slot}")
+    bottom_carousel.move_absolute(str(carousel_slot));time.sleep(10)
+    #####################################
+    # Filling washing vials
+    #####################################
+    print(F"[INFO] Filling vials of carousel slot {carousel_slot}")
+    bottom_carousel.move_absolute(str(10));time.sleep(20)
+    print("[INFO] Filling washing vials")
+    bottom_carousel.turn_pumps_on();time.sleep(22)
+    bottom_carousel.turn_pumps_off()
+    bottom_carousel.move_absolute(str(carousel_slot));time.sleep(0)
+    ##################################
+    # Vial in quantos
+    #####################################
+    print("[INFO] Move robot to idle position.")
+    execute_routine_arm("idle.json")
+    print("[INFO] Opening quantos door")
+    solids_dispenser.open_side_doors()
+    solids_dispenser.open_front_door();time.sleep(3)
+    print("[INFO] Moving vial to quantos.")
+    execute_routine_arm("pick_vial_from_bottom_carousel.json")
+    execute_routine_arm("place_vial_in_quantos.json")
+    #####################################
+    # Solids dispensing TODO put in a for loop
+    #####################################
+    print(F"[INFO] Inserting cartridge number {experiment['salt']['cartridge_pos']} with {experiment['salt']['sample_id']} in quantos.")
+    execute_routine_arm(F"pick_cartridge_from_tower_{experiment['salt']['cartridge_pos']}.json")
+    execute_routine_arm("idle.json")
+    print("[INFO] Closing quantos doors.")
+    solids_dispenser.close_side_doors()
+    solids_dispenser.close_front_door();time.sleep(5)
+    print("[INFO] Dispensing.");time.sleep(5)
+    solids_dispenser.lock_dosing_head()
+    #set antiestatic on
+    #tare
+    solids_dispenser.tare_balance()
+    #Dispense a sample.
+    #Expects JSON:
+    #solids={1:["NaCl",10, "Salt"],2:["Ferrocynade",1, "Analyte"]}
+    data = {
+        "sample_id": solids[1][0],
+        "mass": solids[1][1]
+    }
+    solids_dispenser.dispense(data)
+    #get weight
+    weight_salt = solids_dispenser.get_sample_data()
+    print(F"[INFO] Dispensed: {weight_salt}")
+    solids_dispenser.unlock_dosing_head()
+    #set antiestatic off
+    print("[INFO] Opening quantos doors.")
+    solids_dispenser.open_side_doors()
+    solids_dispenser.open_front_door();time.sleep(3)
+    print(F"[INFO] Returning cartridge number {experiment['salt']['cartridge_pos']} with {experiment['salt']['sample_id']} to tower.")
+    execute_routine_arm(F"place_cartridge_in_tower_{experiment['salt']['cartridge_pos']}.json")
+    if not only_electrolyte:    
+        ###Loop2 
+        print(F"[INFO] Inserting cartridge number {experiment['analyte']['cartridge_pos']} with {experiment['analyte']['sample_id']} in quantos.")
+        execute_routine_arm(F"pick_cartridge_from_tower_{experiment['analyte']['cartridge_pos']}.json")
+        execute_routine_arm("idle.json")
+        print("[INFO] Closing quantos doors.")
+        solids_dispenser.close_side_doors()
+        solids_dispenser.close_front_door();time.sleep(5)
+        print("[INFO] Dispensing.");time.sleep(5)
+        solids_dispenser.lock_dosing_head()
+        #set antiestatic on
+        #tare
+        solids_dispenser.tare_balance()
+        #Dispense a sample.
+        #Expects JSON:
+        #solids={1:["NaCl",10, "Salt"],2:["Ferrocynade",1, "Analyte"]}
+        data = {
+            "sample_id": solids[2][0],
+            "mass": solids[2][1]
+        }
+        solids_dispenser.dispense(data)
+        #get weight
+        weight_analyte = solids_dispenser.get_sample_data()
+        print(F"[INFO] Dispensed: {weight_analyte}")
+        solids_dispenser.unlock_dosing_head()
+        #set antiestatic off
+        print("[INFO] Opening quantos doors.")
+        solids_dispenser.open_side_doors()
+        solids_dispenser.open_front_door();time.sleep(3)
+        print(F"[INFO] Returning cartridge number {experiment['analyte']['cartridge_pos']} with {experiment['salt']['sample_id']} to tower.")
+        execute_routine_arm(F"place_cartridge_in_tower_{experiment['analyte']['cartridge_pos']}.json")
+    ###################################
+    #LIQUID DISPENSING TODO put in a for loop
+    ###################################
+    print("[INFO] Moving vial to capper.")
+    execute_routine_arm("pick_vial_from_quantos.json")
+    execute_routine_arm("place_vial_in_capper.json")
+    print("[INFO] Dispensing liquid.")
+    #capper.hold_vial()
+    liquids_dispenser.piston_to_dispense_position();time.sleep(5)
+    print(liquids_dispenser.status());time.sleep(0.3)
+    print(liquids_dispenser.get_valve_pos());time.sleep(0.3)
+    liquid["liquid_id"]=liquids[1][2]
+    liquid["volume"]=liquids[1][1]*1000
+    liquid["source_port"]=LIQUIDS_CHANNELS[1]
+    print(f"[INFO] Dispensing {liquids[1][1]*1000} uL of {liquids[1][2]} from port {LIQUIDS_CHANNELS[1]}")
+    liquids_dispenser.dispense(liquid);time.sleep(0.3)
+    liquids_dispenser.move_home();time.sleep(0.3)
+    liquids_dispenser.piston_to_home_position();time.sleep(5)
+    #capper.release_vial()
+    execute_routine_arm("pick_vial_from_capper.json")
+    ######################################
+    # Mixing
+    ######################################
+    if mix_ultrasound:
+        print("[INFO] Moving vial to mixer.")
+        execute_routine_arm("place_vial_in_mixer_2.json")
+        execute_routine_arm("idle.json")
+        print("[INFO] Mixing.")
+        mixer.lower_lift();time.sleep(15)
+        mixer.turn_ultrasound_bath_on();time.sleep(mixing_time)
+        mixer.turn_ultrasound_bath_off()
+        mixer.raise_lift();time.sleep(15)
+        execute_routine_arm("pick_vial_from_mixer_1.json")
+    #######################################
+    # Sample to carousel
+    #######################################
+    print("[INFO] Moving vial to bottom carousel.")
+    execute_routine_arm("idle.json")
+    execute_routine_arm("place_vial_in_bottom_carousel.json")
+    execute_routine_arm("idle.json")
+    home_arm()
+    weights= [weight_salt, weight_analyte]
+    return weights
+
+###################
+##################
 def analise_sample(echem_slot=2, cv_file_name="", mixing = True, 
                    cv_params={
                        "potentiostat_id":1,
@@ -1202,6 +1362,178 @@ def analise_sample(echem_slot=2, cv_file_name="", mixing = True,
     home_echem()
     return V, I, C, ph_before, ph_after, temp_before, temp_after
 
+def analise_blank(echem_slot=2, cv_file_name="", mixing = True, 
+                   cv_params={
+                       "potentiostat_id":1,
+                       "i_range":5,
+                        "start_potential":0,
+                        "potential_vertex":1,
+                        "scan_rate":100,
+                        "cycles":1,
+                        "increment":0.01,
+                        "show_plot":True,
+                   },
+                   mixing_params={"mixing_type": "stirrer",
+                                  "mixing_time_s": 300},
+                   purging_params={"purging_time_s":180},
+                   experiment_type ="analyte_in_electrolye",
+                   purging_during_cv=False):
+    ########################################
+    # Moving rack from carousel to echem
+    ########################################
+    print("[INFO] Moving rack to echem.")
+    execute_routine_arm("pick_rack_from_bottom_carousel.json")
+    execute_routine_arm(F"place_rack_in_{echem_slot}.json")
+    ########################################
+    # Mixing
+    ########################################
+    if mixing_params["mixing_type"]=='stirrer':
+        stirr_samples(cycles=int(mixing_params['mixing_time_s']/2.5)) #each cycle takes 2.5 secs
+    ########################################
+    # Measuring Ph
+    ########################################
+    print("[INFO] Setting ph measurement.") 
+    execute_routine_echem("ph_measurement.json")
+    print("[INFO] Picking ph Probe") 
+    execute_routine_arm("pick_ph_probe.json")
+    print(F"[INFO] Measuring ph in rack {echem_slot}") 
+    execute_routine_arm(F"measure_ph_in_rack_{echem_slot}.json")
+    stirr_samples(cycles=3,sample_slot_id=echem_slot)
+    ph_toledo_meter.press_read_button();time.sleep(3)
+    msg = ph_toledo_meter.read_ph();time.sleep(2)
+    ph_before = msg['pH']
+    temp_before =msg['temperature_C']
+    print(F"[INFO] Measurement done: {ph_before}") 
+    execute_routine_arm(F"measure_ph_in_rack_{echem_slot}_out.json")
+    ########################################
+    # Washing Ph probe
+    ########################################
+    print("[INFO] Washing ph probe.") 
+    execute_routine_arm(f"wash_ph_probe_be_in_rack_{echem_slot}.json")
+    print("[INFO] Returning ph probe") 
+    execute_routine_arm("place_ph_probe.json")
+    execute_routine_echem("idle.json")
+    home_echem()
+    #if experiment_type == "analyte_in_electrolye":
+    ########################################
+    # Washing  Electrodes
+    ########################################
+    print("[INFO] Washing electrodes.") 
+    execute_routine_echem("wash_electrodes.json")
+    wash_electrodes(cycles=10,electrode_id=echem_slot)
+    execute_routine_echem("wash_electrodes_out.json")
+    execute_routine_echem("ph_measurement.json")
+    print("[INFO] Drying electrodes") 
+    echem.dryer_on();time.sleep(10)
+    echem.dryer_off();time.sleep(0.1)
+    execute_routine_echem("idle.json")
+    home_echem()
+    execute_routine_echem("idle.json")
+    ###########################################
+    #PHOTO BEFORE EXPERIMENT OF ELECTRODES 
+    ###########################################
+    print("[INFO] Sinking electrodes in cell.") 
+    execute_routine_echem("cv_start_position.json")
+    degassing_sample(degassing_time=purging_params['purging_time_s'])
+    if purging_during_cv:
+        echem.purger_on();time.sleep(0.1)
+    ###########################################
+    #CV Test logic
+    ###########################################
+    try:
+        print("[INFO] Executing CV test...")
+        df, data = run_cyclic_voltammetry(potentiostat_id=3, 
+                                          i_range=cv_params["i_range"], 
+                                          start_potential=cv_params["start_potential"], 
+                                          potential_vertex=cv_params["potential_vertex"], 
+                                          scan_rate=cv_params["scan_rate"], 
+                                          cycles=5, 
+                                          increment=cv_params["increment"], 
+                                          show_plot=cv_params["show_plot"], 
+                                          file_name=cv_file_name)
+        V = df["Potential"].values
+        I = df["Current"].values
+        C = df["Cycle"].values
+        print("[INFO] CV test done.")
+    except Exception as e:
+        print(f"[ERROR] Not possible to connect with potentiostat: {e}")
+        print("\n[INFO] Original CV configuration:")
+        print("[INFO] Original CV configuration:")
+        print(f"       i_range={cv_params['i_range']}")
+        print(f"       start_potential={cv_params['start_potential']}")
+        print(f"       potential_vertex={cv_params['potential_vertex']}")
+        print(f"       scan_rate={cv_params['scan_rate']}")
+        print(f"       cycles={cv_params['cycles']}")
+        print(f"       increment={cv_params['increment']}")
+        print(f"       show_plot={cv_params['show_plot']}")
+        print(f"       file_name={cv_file_name}")
+        while True:
+            repeat = input("\nDo you want to repeat the CV test? (Y/N): ").strip().upper()
+
+            if repeat == "N" or repeat == "n":
+                print("[INFO] CV test cancelled.")
+                break
+
+            if repeat != "Y" or repeat != "Y":
+                print("[ERROR] Please enter Y or N.")
+                continue
+
+            print("\n[INFO] Enter new values. Press ENTER to keep the current value.")
+
+            try:
+                #cv_params["i_range"] = float(input(f"i_range [{cv_params['i_range']}]: ") or cv_params["i_range"])
+                cv_params["start_potential"] = float(input(f"start_potential [{cv_params['start_potential']}]: ") or cv_params["start_potential"])
+                cv_params["potential_vertex"] = float(input(f"potential_vertex [{cv_params['potential_vertex']}]: ") or cv_params["potential_vertex"])
+                #cv_params["scan_rate"] = float(input(f"scan_rate [{cv_params['scan_rate']}]: ") or cv_params["scan_rate"])
+                #cv_params["cycles"] = int(input(f"cycles [{cv_params['cycles']}]: ") or cv_params["cycles"])
+                #cv_params["increment"] = float(input(f"increment [{cv_params['increment']}]: ") or cv_params["increment"])
+                file_name = input(f"file_name [{cv_file_name}]: ").strip()
+                if file_name:
+                    cv_file_name = file_name
+
+                print("\n[INFO] New CV configuration:")
+                print(f"       i_range={cv_params['i_range']}")
+                print(f"       start_potential={cv_params['start_potential']}")
+                print(f"       potential_vertex={cv_params['potential_vertex']}")
+                print(f"       scan_rate={cv_params['scan_rate']}")
+                print(f"       cycles= 5")
+                print(f"       increment={cv_params['increment']}")
+                print(f"       show_plot={cv_params['show_plot']}")
+                print(f"       file_name={cv_file_name}")
+                print("[INFO] Executing CV test...")
+                df, data = run_cyclic_voltammetry(potentiostat_id=3, i_range=cv_params["i_range"], start_potential=cv_params["start_potential"], potential_vertex=cv_params["potential_vertex"], scan_rate=cv_params["scan_rate"], cycles=5, increment=cv_params["increment"], show_plot=cv_params["show_plot"], file_name=cv_file_name)
+                V = df["Potential"].values
+                I = df["Current"].values
+                C = df["Cycle"].values
+                print("[INFO] CV test done.")
+                break
+
+            except Exception as e:
+                print(f"[ERROR] CV test failed: {e}")
+                print("[INFO] The current configuration will be used as reference for the next attempt.")
+
+    echem.purger_off();time.sleep(0.1)
+    execute_routine_echem("cv_end_position.json")
+    execute_routine_echem("idle.json")
+    home_echem()
+    ########################################
+    # Washing  Electrodes
+    ########################################
+    print("[INFO] Washing electrodes.") 
+    execute_routine_echem("wash_electrodes.json")
+    wash_electrodes(cycles=10,electrode_id=echem_slot)
+    execute_routine_echem("wash_electrodes_out.json")
+    execute_routine_echem("ph_measurement.json")
+    print("[INFO] Drying off electrodes") 
+    echem.dryer_on();time.sleep(10)
+    echem.dryer_off();time.sleep(0.1)
+    execute_routine_echem("idle.json")
+    home_echem()
+    ph_after = None
+    temp_after = None
+    return V, I, C, ph_before, ph_after, temp_before, temp_after
+
+
 def select_json(experiments_path):
     """Let the user select an experiment JSON if none was provided."""
     try:
@@ -1293,15 +1625,19 @@ def load_experiment():
 
     output_files = {
         "cv_raw": paths["data"] / "cv_raw.json",
+        "cv_raw_blank": paths["data"] / "cv_blank_raw.json",
         "ph_measurements": paths["data"] / "ph_measurements.json",
+        "ph_measurements_blank": paths["data"] / "ph_blank_measurements.json",
         "report_raw_data": paths["data"] / "report_raw_data.json",
+        "dispensed_masses": paths["data"] / "dispensed_masses.json",
+        "dispensed_masses_blank": paths["data"] / "dispensed_masses_blank.json",
     }
 
     for name, file_path in output_files.items():
         if not file_path.exists():
             content = (
                 {"ph_before": None, "ph_after": None}
-                if name == "ph_measurements"
+                if name == "ph_measurements" or name == "ph_measurements_blank"
                 else {}
             )
             with open(file_path, "w", encoding="utf-8") as f:
@@ -3952,6 +4288,7 @@ def cast_working_electrode(electrode_num=2,carousel_slot=0, mixing_time=60, mixi
     execute_routine_pipette_robot("pick_tip_00.json")
     #home pipette to increase precision
     home_pipette()
+    home_echem()
     print("[INFO] Sampling material")
     # move pipette over sampling vial
     execute_routine_pipette_robot("above_sampling_vial.json")
@@ -3967,9 +4304,9 @@ def cast_working_electrode(electrode_num=2,carousel_slot=0, mixing_time=60, mixi
     print("[INFO] Casting electrode")
     execute_routine_pipette_robot(F"above_electrode_{electrode_num}.json")
     # move echem electrode under pipette
-    execute_routine_echem(F"under_pipette_{electrode_num}.json")
+    execute_routine_echem(F"casting_position.json")
     # sample
-    pipette_bot.pipette_unload();time.sleep(0.8)
+    pipette_bot.pipette_unload();time.sleep(1)
     print("[INFO] Disposing tip")
     # move pipette over tips deposit
     execute_routine_echem(F"under_pipette_disposal.json")
@@ -4018,7 +4355,7 @@ def polish(echem_slot=2):
             #moving echem to wtting disc position
             execute_routine_echem("wetting_disc.json")
             #wetting for 3 secs
-            echem.polisher_dropper_on();time.sleep(3)
+            echem.polisher_dropper_on();time.sleep(11)
             echem.polisher_dropper_off();time.sleep(0.1)
             polish_electrode(electrode_id=2,passes=10)
             #washing and drying routine again
@@ -4040,353 +4377,416 @@ def polish(echem_slot=2):
             print(F"[WARNING] Electrode {echem_slot} not polished.")
             break
 if __name__ == "__main__":
-    # 1. Initialise workflow paths and load user script
-    #polish()
-    #sys.exit()
-    experiment, paths = load_experiment()
-    #experiment={"experiment_mode":"analyte_on_electrode"}
-    if experiment["experiment_mode"] == "analyte_on_working_electrode":
-        echem_slot=2    
-        cv_params={
-            "potentiostat_id":1,
-            "i_range":I_range_mode[experiment["cv_parameters"]["i_range"]],
-            "start_potential":experiment["cv_parameters"]["start_potential_v"],
-            "potential_vertex":experiment["cv_parameters"]["potential_vertex_v"],
-            "scan_rate":experiment["cv_parameters"]["scan_rate_mv_s"],
-            "cycles":experiment["cv_parameters"]["cycles"],
-            "increment":experiment["cv_parameters"]["increment_v"],
-            "show_plot":True,}
-        solids= {}
-        for solid in experiment['recipe']['solids']:
-            solids[solid['cartridge_position']]= [solid['name'],solid['mass_mg'],solid["role"]]
-        print(solids)
-        liquids = {}
-        for liquid in experiment['recipe']['liquids']:
-            liquids[liquid['channel']]= [liquid['name'],liquid['volume_ml'],"solvent"]
-        print(liquids)
-        #w1={'outcomes': ['Substance: KCL', 'Content Unit="mg": 111.90', 'Target_quantity Unit="mg": 111.32', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: VALID'], 'success': True}
-        #w2={'outcomes': "N/A"}
-        #weights =[w1,w2]
-        #################################
-        # Casting electrode
-        #################################
-        cast_working_electrode(mixing=False)
-        #################################
-        # Preparing electrolyte
-        ################################ 
-        weights = prepare_sample(solids=solids,
-                    liquids=liquids,
-                    experiment={solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1}},
-                    only_electrolyte=True) #preparing only electrolyte for this workflow
-        dispensed_masses ={"salt": weights[0]['outcomes'][1],
-                                            "analyte": "7 uL on working electrode"}
-        with open(paths["data"] / "dispensed_masses.json", "w", encoding="utf-8") as f:
-            json.dump(dispensed_masses, f, indent=2)
-        #################################
-        input("[WARNING] Lower electrodes?") # Continue with step two analysis
-        echem.raise_electrodes();time.sleep(2)
-        input("continue?")
-        ######################################
-        # CV test
-        ######################################
-        home_echem()
-        print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
-        V, I ,C, ph_before, ph_after, temp_before, temp_after = analise_sample(echem_slot=echem_slot,cv_file_name=paths["imgs"] / "CV.png",cv_params=cv_params, experiment_type="analyte_on_working_electrode", purging_during_cv= True)
-        home_echem()
-        print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
-        home_echem()
-        #input("continue?")
-        ######################################
-        # AI report
-        ######################################
-        print("[INFO] Setting up report...")
-        cv_data = {
-            "potential_V": V.tolist(),
-            "current_A": I.tolist(),
-            "cycle": C.tolist(),
-            "cycles": experiment["cv_parameters"]["cycles"],
-            "is_simulated": False,
-        }
-        #print(cv_data)
-        with open(paths["data"] / "cv_raw.json", "w", encoding="utf-8") as f:
-            json.dump(cv_data, f, indent=2)
+    while True:
+        # 1. Initialise workflow paths and load user script
+        print("[INFO] Select an option.")
+        print("[INFO] A) Run experiment.")
+        print("[INFO] B) Polish electrode only.")
+        print("[INFO] C) Generate report only")
+        print("[INFO] D) Exit")
+        option=input()
+        if option == "C" or option == "c":
+            experiment, paths = load_experiment()
+            try:
+                # Load CV data 
+                with open(paths["data"] / "cv_raw.json", "r", encoding="utf-8") as f: 
+                    cv_data = json.load(f) 
+                with open(paths["data"] / "cv_blank_raw.json", "r", encoding="utf-8") as f: 
+                    cv_data_blank = json.load(f) 
+                # Load pH data 
+                with open(paths["data"] / "ph_measurements.json", "r", encoding="utf-8") as f: 
+                    ph_data = json.load(f) 
+                with open(paths["data"] / "ph_blank_measurements.json", "r", encoding="utf-8") as f: 
+                    ph_data_blank = json.load(f) 
+                # Load dispensed masses 
+                with open(paths["data"] / "dispensed_masses.json", "r", encoding="utf-8") as f: 
+                    dispensed_masses = json.load(f) 
+                with open(paths["data"] / "dispensed_masses_blank.json", "r", encoding="utf-8") as f: 
+                    dispensed_masses_blank = json.load(f) 
+                    # Load report raw data 
+                with open(paths["data"] / "report_raw_data.json", "r", encoding="utf-8") as f: 
+                    report_data = json.load(f) 
+                # Build results_data exactly as expected by the report 
+                results_data = { 
+                                "cv_raw": cv_data, 
+                                "cv_blank_raw": cv_data_blank,
+                                "ph_measurements": ph_data, 
+                                "ph_blank_measurements": ph_data_blank,
+                                "images": { "electrode_before": paths["imgs"] / "electrode_before.png", 
+                                            "electrode_after": paths["imgs"] / "electrode_after.png", 
+                                            "CV": paths["imgs"] / "CV.png", 
+                                        }, 
+                                "dispensed_masses": dispensed_masses,
+                                "dispensed_masses_blank": dispensed_masses_blank, 
+                                "is_simulated": False, } 
+            except Exception as e:
+                print("[Error] Data not found.")
+                print(F"[Error] {e}")
+                sys.exit()
+            print("[INFO] What model would you like to use for generating the report?")
+            print("[INFO] A) Mini")
+            print("[INFO] B) Terra")
+            print("[INFO] C) Astra")
+            print("[INFO] D) Exit")
+            model_option = input()
+            # Generate csv for blank and cv
+            # 3. Generate Report
+            print("[INFO] Generating report...")
+            #Take last cycle for measurement.
+            #Combine last cycle with las blank cycle and plot it.
+            #Add after polishing image.
+            #Analyse blank and after polishing image
+            report_data = generate_report(
+                input_data=experiment, 
+                results_data=results_data, 
+                paths=paths, 
+                model="terra")
+            report_from_json(
+                input_data=experiment,
+                results_data=results_data,
+                paths=paths,
+                model="terra",
+                report_data=report_data)
+            sys.exit()
+        elif option == "B" or option == "b":
+            home_echem()
+            polish()
+            sys.exit()
+        elif option=="A" or option == "a":
+            experiment, paths = load_experiment()
+            
+            ##########################################CREATE FILES AND PATHS##########################
+            # Load CV data 
+            with open(paths["data"] / "cv_raw.json", "r", encoding="utf-8") as f: 
+                cv_data = json.load(f) 
+            with open(paths["data"] / "cv_blank_raw.json", "r", encoding="utf-8") as f: 
+                cv_data_blank = json.load(f) 
+            # Load pH data 
+            with open(paths["data"] / "ph_measurements.json", "r", encoding="utf-8") as f: 
+                ph_data = json.load(f) 
+            with open(paths["data"] / "ph_blank_measurements.json", "r", encoding="utf-8") as f: 
+                ph_data_blank = json.load(f) 
+            # Load dispensed masses 
+            with open(paths["data"] / "dispensed_masses.json", "r", encoding="utf-8") as f: 
+                dispensed_masses = json.load(f) 
+            with open(paths["data"] / "dispensed_masses_blank.json", "r", encoding="utf-8") as f: 
+                dispensed_masses_blank = json.load(f) 
+                # Load report raw data 
+            with open(paths["data"] / "report_raw_data.json", "r", encoding="utf-8") as f: 
+                report_data = json.load(f) 
+            # Build results_data exactly as expected by the report 
+            results_data = { 
+                            "cv_raw": cv_data, 
+                            "cv_blank_raw": cv_data_blank,
+                            "ph_measurements": ph_data, 
+                            "ph_blank_measurements": ph_data_blank,
+                            "images": { "electrode_before": paths["imgs"] / "electrode_before.png", 
+                                        "electrode_after": paths["imgs"] / "electrode_after.png", 
+                                        "CV": paths["imgs"] / "CV.png", 
+                                    }, 
+                            "dispensed_masses": dispensed_masses,
+                            "dispensed_masses_blank": dispensed_masses_blank, 
+                            "is_simulated": False, } 
+            #report_from_json(
+            #    input_data=experiment,
+            #    results_data=results_data,
+            #    paths=paths,
+            #    model="terra",
+            #    report_data=report_data)
+            #sys.exit("DEBUG: JSON files loaded successfully. Stopping before experiment execution.") 
+            #####################################################################################################
+            # Analyte in Electrolyte WORKFLOW
+            #####################################################################################################
+            if experiment["experiment_mode"] == "analyte_on_working_electrode":
+                echem_slot=2    
+                cv_params={
+                    "potentiostat_id":1,
+                    "i_range":I_range_mode[experiment["cv_parameters"]["i_range"]],
+                    "start_potential":experiment["cv_parameters"]["start_potential_v"],
+                    "potential_vertex":experiment["cv_parameters"]["potential_vertex_v"],
+                    "scan_rate":experiment["cv_parameters"]["scan_rate_mv_s"],
+                    "cycles":experiment["cv_parameters"]["cycles"],
+                    "increment":experiment["cv_parameters"]["increment_v"],
+                    "show_plot":True,}
+                solids= {}
+                for solid in experiment['recipe']['solids']:
+                    solids[solid['cartridge_position']]= [solid['name'],solid['mass_mg'],solid["role"]]
+                print(solids)
+                liquids = {}
+                for liquid in experiment['recipe']['liquids']:
+                    liquids[liquid['channel']]= [liquid['name'],liquid['volume_ml'],"solvent"]
+                print(liquids)
+                #w1={'outcomes': ['Substance: KCL', 'Content Unit="mg": 111.90', 'Target_quantity Unit="mg": 111.32', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: VALID'], 'success': True}
+                #w2={'outcomes': "N/A"}
+                #weights =[w1,w2]
+                ###################################################################################################
+                # 1. Prepare blank
+                ###################################################################################################
+                blank_weights = prepare_blank(solids=solids,
+                            liquids=liquids,
+                            experiment={solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1}},
+                            carousel_slot=1,
+                            only_electrolyte=True)
+                ###################################################################################################
+                # 2. Run CV in blank
+                ###################################################################################################
+                V_blank, I_blank ,C_blank, ph_before_blank, ph_after_blank, temp_before_blank, temp_after_blank = analise_blank(
+                                                                                        echem_slot=echem_slot,
+                                                                                        cv_file_name=paths["imgs"] / "CV_blank.png",
+                                                                                        cv_params=cv_params)
+                cv_data_blank = {
+                    "potential_V": V_blank.tolist(),
+                    "current_A": I_blank.tolist(),
+                    "cycle": C_blank.tolist(),
+                    "cycles": 5,
+                    "is_simulated": False,}
+                print("[INFO] Returning rack to carousel.")
+                execute_routine_arm("idle.json")
+                execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
+                execute_routine_arm("place_rack_in_bottom_carousel.json")
+                print("[INFO] Workflow finished, homing arm.")
+                home_arm()
+                #################################
+                # 3. Casting electrode
+                #################################
+                cast_working_electrode(mixing=True)
+                #################################
+                # 4. Preparing electrolyte
+                ################################ 
+                weights = prepare_sample(solids=solids,
+                            liquids=liquids,
+                            experiment={solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1}},
+                            only_electrolyte=True) #preparing only electrolyte for this workflow
+                dispensed_masses ={"salt": weights[0]['outcomes'][1],
+                                                    "analyte": "7 uL on working electrode"}
+                with open(paths["data"] / "dispensed_masses.json", "w", encoding="utf-8") as f:
+                    json.dump(dispensed_masses, f, indent=2)
+                #################################
+                input("[WARNING] Lower electrodes?") # Continue with step two analysis
+                echem.raise_electrodes();time.sleep(2)
+                input("continue?")
+                ######################################
+                # 5. CV test
+                ######################################
+                home_echem()
+                print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
+                V, I ,C, ph_before, ph_after, temp_before, temp_after = analise_sample(echem_slot=echem_slot,cv_file_name=paths["imgs"] / "CV.png",cv_params=cv_params, experiment_type="analyte_on_working_electrode", purging_during_cv= True)
+                home_echem()
+                print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
+                home_echem()
+                cv_data = {
+                            "potential_V": V.tolist(),
+                            "current_A": I.tolist(),
+                            "cycle": C.tolist(),
+                            "cycles": experiment["cv_parameters"]["cycles"],
+                            "is_simulated": False,}
+                ######################################
+                # 6. AI report
+                ######################################
+                print("[INFO] Setting up report...")
+                #############################
+                #############################
+                with open(paths["data"] / "cv_raw.json", "w", encoding="utf-8") as f:
+                    json.dump(cv_data, f, indent=2)
+                ##-> cv_data_blank
+                with open(paths["data"] / "cv_blank_raw.json", "w", encoding="utf-8") as f: 
+                    json.dump(cv_data_blank, f, indent=2)
+                ph_data = {"ph_before": ph_before, "ph_after": ph_after, "is_simulated": False,
+                        "temp_before_C": temp_before, "temp_after_C": temp_after}
+                ph_data_blank = {"ph_before": ph_before_blank, "ph_after": ph_after_blank, "is_simulated": False,
+                                "temp_before_C": temp_before_blank, "temp_after_C": temp_after_blank}
+                with open(paths["data"] / "ph_measurements.json", "w", encoding="utf-8") as f:
+                    json.dump(ph_data, f, indent=2)
+                with open(paths["data"] / "ph_blank_measurements.json", "w", encoding="utf-8") as f: 
+                    json.dump(ph_data_blank, f, indent=2)
+                ##-> ph blank
+                dispensed_masses_blank ={"salt": blank_weights[0]['outcomes'][1]}
+                ##-> masses blank
+                with open(paths["data"] / "dispensed_masses_blank.json", "w", encoding="utf-8") as f: 
+                    json.dump(dispensed_masses_blank, f, indent=2)
 
-        #ph_after=7
-        ph_data = {"ph_before": ph_before, "ph_after": ph_after, "is_simulated": False,
-                   "temp_before_C": temp_before, "temp_after_C": temp_after}
-        with open(paths["data"] / "ph_measurements.json", "w", encoding="utf-8") as f:
-            json.dump(ph_data, f, indent=2)
+                results_data = { 
+                            "cv_raw": cv_data, 
+                            "cv_blank_raw": cv_data_blank,
+                            "ph_measurements": ph_data, 
+                            "ph_blank_measurements": ph_data_blank,
+                            "images": { "electrode_before": paths["imgs"] / "electrode_before.png", 
+                                        "electrode_after": paths["imgs"] / "electrode_after.png", 
+                                        "CV": paths["imgs"] / "CV.png", 
+                                    }, 
+                            "dispensed_masses": dispensed_masses,
+                            "dispensed_masses_blank": dispensed_masses_blank, 
+                            "is_simulated": False, } 
+                ##################################
+                # 3. Generate Report
+                print("[INFO] Generating final report...")
+                #report = generate_report(input_data=experiment, results_data=results_data, paths=paths, model="terra")
+                report_data = generate_report(
+                    input_data=experiment, 
+                    results_data=results_data, 
+                    paths=paths, 
+                    model="terra")
+                report_from_json(
+                    input_data=experiment,
+                    results_data=results_data,
+                    paths=paths,
+                    model="terra",
+                    report_data=report_data)
+                ##############################################
+                #POLISHING? YES POLISH no? continue 
+                ##############################################
+                polish()
+                ############################################
+                # Homing system
+                #############################################
+                print("[INFO] Returning rack to carousel.")
+                execute_routine_arm("idle.json")
+                execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
+                execute_routine_arm("place_rack_in_bottom_carousel.json")
+                print("[INFO] Workflow finished, homing arm.")
+                home_arm()
+                print("[SUCCESS] Workflow execution and report generation complete.")
+            #####################################################################################################
+            # Analyte on WE WORKFLOW
+            #####################################################################################################
+            if experiment["experiment_mode"] == "analyte_in_electrolyte":
+                echem_slot=2    
+                cv_params={
+                    "potentiostat_id":1,
+                    "i_range":I_range_mode[experiment["cv_parameters"]["i_range"]],
+                    "start_potential":experiment["cv_parameters"]["start_potential_v"],
+                    "potential_vertex":experiment["cv_parameters"]["potential_vertex_v"],
+                    "scan_rate":experiment["cv_parameters"]["scan_rate_mv_s"],
+                    "cycles":experiment["cv_parameters"]["cycles"],
+                    "increment":experiment["cv_parameters"]["increment_v"],
+                    "show_plot":True,}
+                solids= {}
+                for solid in experiment['recipe']['solids']:
+                    solids[solid['cartridge_position']]= [solid['name'],solid['mass_mg'],solid["role"]]
+                print(solids)
+                liquids = {}
+                for liquid in experiment['recipe']['liquids']:
+                    liquids[liquid['channel']]= [liquid['name'],liquid['volume_ml'],"solvent"]
+                print(liquids)
+                ###################################################################################################
+                # 1. Prepare blank
+                ###################################################################################################
+                blank_weights = prepare_blank(solids=solids,
+                            liquids=liquids,
+                            experiment={solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1}},
+                            carousel_slot=1,
+                            only_electrolyte=True)
+                ###################################################################################################
+                # 2. Run CV in blank
+                ###################################################################################################
+                V_blank, I_blank ,C_blank, ph_before_blank, ph_after_blank, temp_before_blank, temp_after_blank = analise_blank(
+                                                                                    echem_slot=echem_slot,
+                                                                                    cv_file_name=paths["imgs"] / "CV_blank.png",
+                                                                                    cv_params=cv_params)
+                cv_data_blank = {
+                    "potential_V": V_blank.tolist(),
+                    "current_A": I_blank.tolist(),
+                    "cycle": C_blank.tolist(),
+                    "cycles": 5,
+                    "is_simulated": False,}
+                print("[INFO] Returning rack to carousel.")
+                execute_routine_arm("idle.json")
+                execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
+                execute_routine_arm("place_rack_in_bottom_carousel.json")
+                print("[INFO] Workflow finished, homing arm.")
+                home_arm()
+                ###################################################################################################
+                # 3. Prepare sample
+                ###################################################################################################
+                weights = prepare_sample(solids=solids,
+                            liquids=liquids,
+                            experiment={
+                                solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1},
+                                solids[2][2]: {'sample_id':solids[2],'cartridge_pos':2}})
+                ###TODO remove commenting block
+                #w1={'outcomes': ['Substance: KCL', 'Content Unit="mg": 124.16', 'Target_quantity Unit="mg": 111.83', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: INVALID'], 'success': True}
+                #w2={'outcomes': ['Substance: FERROCYANIDE', 'Content Unit="mg": 5.8', 'Target_quantity Unit="mg": 4.939', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: INVALID'], 'success': True}
+                #w1={'outcomes': ['Substance: KCL', 'Content Unit="mg": 111.90', 'Target_quantity Unit="mg": 111.32', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: VALID'], 'success': True}
+                #w2={'outcomes': ['Substance: VITAMIN C', 'Content Unit="mg": 131.84', 'Target_quantity Unit="mg": 132.00', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: VALID'], 'success': True}
+                #weights =[w1,w2]
+                #input("Continue?")
+                home_echem()
+                print("[INFO] Photo of WE before CV saved in: ",photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
+                V, I ,C, ph_before, ph_after, temp_before, temp_after = analise_sample(echem_slot=echem_slot,cv_file_name=paths["imgs"] / "CV.png",cv_params=cv_params)
+                print("[INFO] Photo of WE after CV saved in: ",photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
+                home_echem()
+                cv_data = {
+                    "potential_V": V.tolist(),
+                    "current_A": I.tolist(),
+                    "cycle": C.tolist(),
+                    "cycles": experiment["cv_parameters"]["cycles"],
+                    "is_simulated": False,}
+                #############################
+                #############################
+                with open(paths["data"] / "cv_raw.json", "w", encoding="utf-8") as f:
+                    json.dump(cv_data, f, indent=2)
+                ##-> cv_data_blank
+                with open(paths["data"] / "cv_blank_raw.json", "w", encoding="utf-8") as f: 
+                    json.dump(cv_data_blank, f, indent=2)
+                ph_data = {"ph_before": ph_before, "ph_after": ph_after, "is_simulated": False,
+                        "temp_before_C": temp_before, "temp_after_C": temp_after}
+                ph_data_blank = {"ph_before": ph_before_blank, "ph_after": ph_after_blank, "is_simulated": False,
+                                "temp_before_C": temp_before_blank, "temp_after_C": temp_after_blank}
+                with open(paths["data"] / "ph_measurements.json", "w", encoding="utf-8") as f:
+                    json.dump(ph_data, f, indent=2)
+                with open(paths["data"] / "ph_blank_measurements.json", "w", encoding="utf-8") as f: 
+                    json.dump(ph_data_blank, f, indent=2)
+                ##-> ph blank
+                dispensed_masses ={"salt": weights[0]['outcomes'][1],
+                                            "analyte": weights[1]['outcomes'][1]}
+                dispensed_masses_blank ={"salt": blank_weights[0]['outcomes'][1]}
+                with open(paths["data"] / "dispensed_masses.json", "w", encoding="utf-8") as f:
+                    json.dump(dispensed_masses, f, indent=2)
+                ##-> masses blank
+                with open(paths["data"] / "dispensed_masses_blank.json", "w", encoding="utf-8") as f: 
+                    json.dump(dispensed_masses_blank, f, indent=2)
 
-        
-        results_data = {
-            "cv_raw": cv_data,
-            "ph_measurements": ph_data,
-            "images": {
-                "electrode_before": paths["imgs"] / "electrode_before.png",
-                "electrode_after": paths["imgs"] / "electrode_after.png",
-                "CV": paths["imgs"] / "CV.png",
-            },
-            "dispensed_masses": dispensed_masses,
-            "is_simulated": False,
-        }
-        # 3. Generate Report
-        print("[INFO] Generating final report...")
-        #report = generate_report(input_data=experiment, results_data=results_data, paths=paths, model="terra")
-        report_data = generate_report(
-            input_data=experiment, 
-            results_data=results_data, 
-            paths=paths, 
-            model="terra")
-        report_from_json(
-            input_data=experiment,
-            results_data=results_data,
-            paths=paths,
-            model="terra",
-            report_data=report_data)
-        ##############################################
-        #POLISHING? YES POLISH no? continue 
-        ##############################################
-        while True:
-            answer=input(f'[WARNING] Polish electrode {echem_slot} (y/n)')
-            if answer == 'y' or answer == 'Y':
-                print(F"[INFO] Polishing electrode {echem_slot} ")
-                polish_electrode(electrode_id=2,passes=5)
-                #washing and drying routine again
-                home_echem()
-                print("[INFO] Washing electrodes.") 
-                execute_routine_echem("wash_electrodes.json")
-                wash_electrodes(cycles=20,electrode_id=echem_slot)
-                execute_routine_echem("wash_electrodes_out.json")
-                execute_routine_echem("ph_measurement.json")
-                print("[INFO] Drying electrodes") 
-                echem.dryer_on();time.sleep(10)
-                echem.dryer_off();time.sleep(0.1)
-                execute_routine_echem("idle.json")
-                home_echem()
-                home_echem()
-                print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after_polishing.png"))
-                break
-            elif answer == 'n' or answer == 'N':
-                print(F"[WARNING] Electrode {echem_slot} not polished.")
-                break
-        ############################################
-        # Homing system
-        #############################################
-        print("[INFO] Returning rack to carousel.")
-        execute_routine_arm("idle.json")
-        execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
-        execute_routine_arm("place_rack_in_bottom_carousel.json")
-        print("[INFO] Workflow finished, homing arm.")
-        home_arm()
-        print("[SUCCESS] Workflow execution and report generation complete.")
-    sys.exit()
-    #echem_slot=2
-    #home_echem()
-    #print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
-    #execute_routine_echem("ph_measurement.json")
-    #execute_routine_echem("idle.json")
-    #home_echem()
-    #print("[INFO] Washing electrodes.") 
-    #execute_routine_echem("wash_electrodes.json")
-    ##wash_electrodes(cycles=10,electrode_id=echem_slot)
-    #execute_routine_echem("wash_electrodes_out.json")
-    #execute_routine_echem("ph_measurement.json")
-    #print("[INFO] Drying electrodes") 
-    #execute_routine_echem("idle.json")
-    #home_echem()
-    ##execute_routine_echem("idle.json")
-    #execute_routine_echem("cv_start_position.json")
-    #execute_routine_echem("cv_end_position.json")
-    #execute_routine_echem("idle.json")
-    #home_echem()
-    #print("[INFO] Setting ph measurement.") 
-    #execute_routine_echem("ph_measurement.json")
-    #echem.dryer_on();time.sleep(10)
-    #print("[INFO] Picking ph Probe") 
-    #print("[INFO] Returning ph Probe")
-    #echem.dryer_off();time.sleep(0.1)
-    #execute_routine_echem("idle.json")
-    #home_echem()
-    #print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
-    ##############################################
-    #POLISHING? YES POLISH no? continue 
-    ##############################################
-    #while True:
-    #    answer=input(f'[WARNING] Polish electrode {echem_slot} (y/n)')
-    #    if answer == 'y' or answer == 'Y':
-    #        print(F"[INFO] Polishing electrode {echem_slot} ")
-    #        polish_electrode(electrode_id=2,passes=3)
-    #        #washing and drying routine again
-    #        home_echem()    
-    #        print("[INFO] Washing electrodes.") 
-    #        execute_routine_echem("wash_electrodes.json")
-    #        wash_electrodes(cycles=10,electrode_id=echem_slot)
-    #        execute_routine_echem("wash_electrodes_out.json")
-    #        execute_routine_echem("ph_measurement.json")
-    #        print("[INFO] Drying electrodes") 
-    #        echem.dryer_on();time.sleep(10)
-    #        echem.dryer_off();time.sleep(0.1)
-    #        execute_routine_echem("idle.json")
-    #        home_echem()
-    #        home_echem()
-    #        print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after_polishing.png"))
-    #        break
-    #    elif answer == 'n' or answer == 'N':
-    #        print(F"[WARNING] Electrode {echem_slot} not polished.")
-    #        break
-    #sys.exit("DEBUG: CV test routine executed succesfully.")
-    ##########################################ONLY report form json##########################
-    # Load CV data 
-    with open(paths["data"] / "cv_raw.json", "r", encoding="utf-8") as f: 
-        cv_data = json.load(f) 
-    # Load pH data 
-    with open(paths["data"] / "ph_measurements.json", "r", encoding="utf-8") as f: 
-        ph_data = json.load(f) 
-    # Load dispensed masses 
-    with open(paths["data"] / "dispensed_masses.json", "r", encoding="utf-8") as f: 
-        dispensed_masses = json.load(f) 
-        # Load report raw data 
-    with open(paths["data"] / "report_raw_data.json", "r", encoding="utf-8") as f: 
-        report_data = json.load(f) 
-    # Build results_data exactly as expected by the report 
-    results_data = { "cv_raw": cv_data, 
-                    "ph_measurements": ph_data, 
-                    "images": { "electrode_before": paths["imgs"] / "electrode_before.png", "electrode_after": paths["imgs"] / "electrode_after.png", 
-                            "CV": paths["imgs"] / "CV.png", }, 
-                    "dispensed_masses": dispensed_masses, 
-                    "is_simulated": False, } 
-    # GenePerform CV to characterize PEDOT deposited (10 uL) onto a platinum working electrode (d = 2 mm). Pipette the PEDOT ink onto the electrode and allow it to dry. Prepare 15 mL of KCl supporting electrolyte using available solid KCl and water. Immerse the coated electrode and perform CV using a platinum counter electrode and Ag/AgCl (3 M KCl) reference electrode. Select a suitable KCl concentration and justified CV settings, starting with a potential window of −0.5 to +0.5 V versus Ag/AgCl and exactly 10 cycles. Verify reagent and hardware availability, follow safety requirements, and return the complete executable configuration in the required JSON schema.rate the LLM report and/or PDF 
-    #report_data = generate_report( input_data=experiment, results_data=results_data, paths=paths, model="terra")
-    #sys.exit("DEBUG: JSON files loaded successfully. Stopping before experiment execution.")
-    report_from_json(
-        input_data=experiment,
-        results_data=results_data,
-        paths=paths,
-        model="terra",
-        report_data=report_data
-    )
-    sys.exit("DEBUG: JSON files loaded successfully. Stopping before experiment execution.") 
-    ######################################################################################################
-    if experiment["experiment_mode"] == "analyte_in_electrolyte":
-        echem_slot=2    
-        cv_params={
-            "potentiostat_id":1,
-            "i_range":I_range_mode[experiment["cv_parameters"]["i_range"]],
-            "start_potential":experiment["cv_parameters"]["start_potential_v"],
-            "potential_vertex":experiment["cv_parameters"]["potential_vertex_v"],
-            "scan_rate":experiment["cv_parameters"]["scan_rate_mv_s"],
-            "cycles":experiment["cv_parameters"]["cycles"],
-            "increment":experiment["cv_parameters"]["increment_v"],
-            "show_plot":True,}
-
-        solids= {}
-        for solid in experiment['recipe']['solids']:
-            solids[solid['cartridge_position']]= [solid['name'],solid['mass_mg'],solid["role"]]
-        print(solids)
-        liquids = {}
-        for liquid in experiment['recipe']['liquids']:
-            liquids[liquid['channel']]= [liquid['name'],liquid['volume_ml'],"solvent"]
-        print(liquids)
-        #TODO remove commenting block 
-        weights = prepare_sample(solids=solids,
-                    liquids=liquids,
-                    experiment={
-            solids[1][2]: {'sample_id': solids[1],'cartridge_pos': 1},
-            solids[2][2]: {'sample_id':solids[2],'cartridge_pos':2}
-        })
-        ###TODO remove commenting block
-        #w1={'outcomes': ['Substance: KCL', 'Content Unit="mg": 124.16', 'Target_quantity Unit="mg": 111.83', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: INVALID'], 'success': True}
-        #w2={'outcomes': ['Substance: FERROCYANIDE', 'Content Unit="mg": 5.8', 'Target_quantity Unit="mg": 4.939', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: INVALID'], 'success': True}
-        #w1={'outcomes': ['Substance: KCL', 'Content Unit="mg": 111.90', 'Target_quantity Unit="mg": 111.32', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: VALID'], 'success': True}
-        #w2={'outcomes': ['Substance: VITAMIN C', 'Content Unit="mg": 131.84', 'Target_quantity Unit="mg": 132.00', 'Powder_dosing_mode: Standard', 'Tapping_before_dosing: On', 'Intensity: 50', 'Tolerance_Mode: +/- Tolerance', 'Tolerance Unit="%": 1.0', 'Validity: VALID'], 'success': True}
-        #weights =[w1,w2]
-        input("Continue?")
-        home_echem()
-        print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_before.png"))
-        V, I ,C, ph_before, ph_after, temp_before, temp_after = analise_sample(echem_slot=echem_slot,cv_file_name=paths["imgs"] / "CV.png",cv_params=cv_params)
-        print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after.png"))
-        home_echem()
-        #input("continue?")
-        print("[INFO] Simulating experiment execution...")
-        cv_data = {
-            "potential_V": V.tolist(),
-            "current_A": I.tolist(),
-            "cycle": C.tolist(),
-            "cycles": experiment["cv_parameters"]["cycles"],
-            "is_simulated": False,
-        }
-        #print(cv_data)
-        with open(paths["data"] / "cv_raw.json", "w", encoding="utf-8") as f:
-            json.dump(cv_data, f, indent=2)
-
-        #ph_after=7
-        ph_data = {"ph_before": ph_before, "ph_after": ph_after, "is_simulated": False,
-                   "temp_before_C": temp_before, "temp_after_C": temp_after}
-        with open(paths["data"] / "ph_measurements.json", "w", encoding="utf-8") as f:
-            json.dump(ph_data, f, indent=2)
-
-        dispensed_masses ={"salt": weights[0]['outcomes'][1],
-                                    "analyte": weights[1]['outcomes'][1]}
-        with open(paths["data"] / "dispensed_masses.json", "w", encoding="utf-8") as f:
-            json.dump(dispensed_masses, f, indent=2)
-        results_data = {
-            "cv_raw": cv_data,
-            "ph_measurements": ph_data,
-            "images": {
-                "electrode_before": paths["imgs"] / "electrode_before.png",
-                "electrode_after": paths["imgs"] / "electrode_after.png",
-                "CV": paths["imgs"] / "CV.png",
-            },
-            "dispensed_masses": dispensed_masses,
-            "is_simulated": False,
-        }
-        # 3. Generate Report
-        print("[INFO] Generating final report...")
-        #report = generate_report(input_data=experiment, results_data=results_data, paths=paths, model="terra")
-        report_data = generate_report(
-            input_data=experiment, 
-            results_data=results_data, 
-            paths=paths, 
-            model="terra")
-        report_from_json(
-            input_data=experiment,
-            results_data=results_data,
-            paths=paths,
-            model="terra",
-            report_data=report_data)
-        ##############################################
-        #POLISHING? YES POLISH no? continue 
-        ##############################################
-        while True:
-            answer=input(f'[WARNING] Polish electrode {echem_slot} (y/n)')
-            if answer == 'y' or answer == 'Y':
-                print(F"[INFO] Polishing electrode {echem_slot} ")
-                polish_electrode(electrode_id=2,passes=5)
-                #washing and drying routine again
-                home_echem()
-                print("[INFO] Washing electrodes.") 
-                execute_routine_echem("wash_electrodes.json")
-                wash_electrodes(cycles=20,electrode_id=echem_slot)
-                execute_routine_echem("wash_electrodes_out.json")
-                execute_routine_echem("ph_measurement.json")
-                print("[INFO] Drying electrodes") 
-                echem.dryer_on();time.sleep(10)
-                echem.dryer_off();time.sleep(0.1)
-                execute_routine_echem("idle.json")
-                home_echem()
-                home_echem()
-                print(photograph_electrode(electrode_number=2, file_name=paths["imgs"] / "electrode_after_polishing.png"))
-                break
-            elif answer == 'n' or answer == 'N':
-                print(F"[WARNING] Electrode {echem_slot} not polished.")
-                break
-        ############################################
-        # Homing system
-        #############################################
-        print("[INFO] Returning rack to carousel.")
-        execute_routine_arm("idle.json")
-        execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
-        execute_routine_arm("place_rack_in_bottom_carousel.json")
-        print("[INFO] Workflow finished, homing arm.")
-        home_arm()
-        print("[SUCCESS] Workflow execution and report generation complete.")
+                results_data = { 
+                            "cv_raw": cv_data, 
+                            "cv_blank_raw": cv_data_blank,
+                            "ph_measurements": ph_data, 
+                            "ph_blank_measurements": ph_data_blank,
+                            "images": { "electrode_before": paths["imgs"] / "electrode_before.png", 
+                                        "electrode_after": paths["imgs"] / "electrode_after.png", 
+                                        "CV": paths["imgs"] / "CV.png", 
+                                    }, 
+                            "dispensed_masses": dispensed_masses,
+                            "dispensed_masses_blank": dispensed_masses_blank, 
+                            "is_simulated": False, } 
+                ##################################
+                ##################################
+                # 3. Generate Report
+                print("[INFO] Generating final report...")
+                #report = generate_report(input_data=experiment, results_data=results_data, paths=paths, model="terra")
+                report_data = generate_report(
+                    input_data=experiment, 
+                    results_data=results_data, 
+                    paths=paths, 
+                    model="terra")
+                report_from_json(
+                    input_data=experiment,
+                    results_data=results_data,
+                    paths=paths,
+                    model="terra",
+                    report_data=report_data)
+                ##############################################
+                #POLISHING? YES POLISH no? continue 
+                ##############################################
+                polish()
+                ############################################
+                # Homing system
+                #############################################
+                print("[INFO] Returning rack to carousel.")
+                execute_routine_arm("idle.json")
+                execute_routine_arm(F"pick_rack_from_{echem_slot}.json")
+                execute_routine_arm("place_rack_in_bottom_carousel.json")
+                print("[INFO] Workflow finished, homing arm.")
+                home_arm()
+                print("[SUCCESS] Workflow execution and report generation complete.")
+                sys.exit()
+        print(F"[ERROR] Option {option} is not valid.")
