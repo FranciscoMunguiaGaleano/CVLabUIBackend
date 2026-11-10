@@ -68,7 +68,7 @@ def run_analysis(file_name,save_path):
 
     if len(pos_peak_idx) == 0:
         print(scientific(len(pos_peak_idx)), scientific(len(neg_peak_idx)))
-        ValueError(
+        raise ValueError(
             "No peaks found — try lowering `prominence`, or check your data "
             "columns/units."
         )
@@ -84,6 +84,10 @@ def run_analysis(file_name,save_path):
     else:
         ipa_idx = pos_peak_idx[np.argmax(pos_props["prominences"])]
         ipc_idx = neg_peak_idx[np.argmax(neg_props["prominences"])]
+
+
+    if ipa_idx  == max_x_index:
+        raise ValueError("No peaks found")
 
     if ipc_idx is not None:
         ipc_x, ipc_y = x[ipc_idx], y[ipc_idx]
@@ -334,4 +338,4 @@ def run_analysis(file_name,save_path):
     return output
 
 if __name__ == "__main__":
-    run_analysis("cv_raw_problem_child.json",".")
+    print(run_analysis(r"VITC\cv_raw.json","."))
